@@ -1,0 +1,13 @@
+simulations/*tt*/
+simulations/*ff*/
+simulations/*ss*/
+simulations/*fs*/
+simulations/*sf*/
+plots/
+mosfet_model/
+saved_agents/
+saved_memories/
+saved_weights/
+__pycache__/
+.vscode/
+.DS_Store
