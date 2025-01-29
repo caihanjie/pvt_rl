@@ -64,7 +64,7 @@ env = gym.make(env_id)
 
 # parameters
 num_steps = 5000
-memory_size = 10
+memory_size = 5100
 batch_size = 128
 noise_sigma = 2 # noise volume
 noise_sigma_min = 0.1

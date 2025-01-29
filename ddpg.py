@@ -452,7 +452,7 @@ class DDPGAgent:
         
         return total_actor_loss.data, total_critic_loss.data
 
-    def train(self, num_steps: int, plotting_interval: int = 1):
+    def train(self, num_steps: int, plotting_interval: int = 50):
         """Train the agent."""
         self.is_test = False           
         results_dict= self.env.reset()
