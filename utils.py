@@ -406,7 +406,8 @@ class OutputParser2(DeviceParams):
         vout_data = []
         time_data = []
         data_section = False
-        with open(f'{SPICE_NETLIST_DIR}/{file_name}', 'r')as f:
+        file_dir = self.working_dir
+        with open(f'{SPICE_NETLIST_DIR}/{file_dir}/{file_name}', 'r')as f:
             lines = f.readlines()
             for line in lines:
                 if line.strip():
