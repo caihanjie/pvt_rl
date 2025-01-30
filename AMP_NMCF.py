@@ -14,6 +14,8 @@ from dev_params import DeviceParams
 from utils import ActionNormalizer, OutputParser2
 from datetime import datetime
 import time  # 确保导入time模块
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor  # 改用进程池
 
 date = datetime.today().strftime('%Y-%m-%d')
 PWD = os.getcwd()
@@ -141,10 +143,17 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
     def step(self, action_and_corners):
         """修改step方法接收一个参数，但内部解包两个值"""
         if isinstance(action_and_corners, tuple):
-            action, corner_indices = action_and_corners
+            if len(action_and_corners) == 2:
+                action, corner_indices = action_and_corners
+                save_results = False
+            elif len(action_and_corners) == 3:
+                action, corner_indices, save_results = action_and_corners
+            else:
+                raise ValueError("action_and_corners must be a tuple containing (action, corner_indices) or (action, corner_indices, save_results)")
         else:
-            raise ValueError("action_and_corners must be a tuple containing action and corner_indices")
-        
+            raise ValueError("action_and_corners must be a tuple")
+
+
         action = ActionNormalizer(
             action_space_low=self.action_space_low, 
             action_space_high=self.action_space_high
@@ -164,8 +173,7 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         self.M_C0, \
         self.M_C1 = action        
 
-
-        results_dict, flag = self._do_parallel_simulation(action, corner_indices)
+        results_dict, flag = self._do_parallel_simulation(action, corner_indices, save_results)
         
         reward = {}
         for corner_idx, result in results_dict.items():
@@ -753,20 +761,19 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
 
 
 
-    def _do_parallel_simulation(self, action, corner_indices):
+    def run_single_simulation(self, cmd, corner_name):
+        """执行单个仿真命令"""
+        try:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            return corner_name, result.returncode == 0
+        except Exception as e:
+            print(f"仿真失败 {corner_name}: {str(e)}")
+            return corner_name, False
+            
+    def _do_parallel_simulation(self, action, corner_indices, save_results=False):
         """在多个PVT角点下并行执行仿真"""
         self._update_vars_file(action)
         
-        def run_single_simulation(cmd, corner_name):
-            """执行单个仿真命令"""
-            try:
-                # 将stdout和stderr重定向到PIPE
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                return corner_name, result.returncode == 0
-            except Exception as e:
-                print(f"仿真失败 {corner_name}: {str(e)}")
-                return corner_name, False
-            
         # 准备所有仿真命令
         simulation_commands = []
         for corner_idx in corner_indices:
@@ -784,15 +791,20 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         print('*** Simulations Start! ***')        
         # 并行执行所有仿真
         simulation_results = {}
-        with ThreadPoolExecutor(max_workers=len(corner_indices) * 2) as executor:
-            futures = [executor.submit(run_single_simulation, cmd, name) 
-                    for cmd, name in simulation_commands]
-            
-            for future in futures:
-                corner_name, success = future.result()
-                if corner_name not in simulation_results:
-                    simulation_results[corner_name] = []
-                simulation_results[corner_name].append(success)
+        with ProcessPoolExecutor() as executor:
+            try:
+                futures = [executor.submit(self.run_single_simulation, cmd, name) 
+                        for cmd, name in simulation_commands]
+                
+                for future in futures:
+                    corner_name, success = future.result()
+                    if corner_name not in simulation_results:
+                        simulation_results[corner_name] = []
+                    simulation_results[corner_name].append(success)
+                    
+            except Exception as e:
+                print(f"并行仿真出错: {str(e)}")
+                return None, False
 
         print('*** Simulations Done! ***')
         end_time = time.time()  # 记录结束时间
@@ -806,6 +818,26 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
 
         # 解析成功仿真的结果
         simulation_results = {}
+        best_reward = float('-inf')
+        output_text = []  # 用于收集输出内容
+
+        if save_results:
+            output_text.append("********Best Results********\n\n")
+            output_text.append("Best Action:\n")
+            param_names = [
+                'W_M0', 'L_M0', 'M_M0',
+                'W_M8', 'L_M8', 'M_M8',
+                'W_M10', 'L_M10', 'M_M10',
+                'W_M11', 'L_M11', 'M_M11',
+                'W_M17', 'L_M17', 'M_M17',
+                'W_M21', 'L_M21', 'M_M21',
+                'W_M23', 'L_M23', 'M_M23',
+                'Ib', 'M_C0', 'M_C1'
+            ]
+            for name, value in zip(param_names, action):
+                output_text.append(f"{name}: {value}\n")
+            output_text.append("\nSimulation Results:\n")
+
         for idx, success in simulation_success.items():
             if success:
                 corner_name = list(self.pvt_graph.pvt_corners.keys())[idx]
@@ -820,55 +852,78 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
                 observation = self._get_obs()
                 info, reward= self._get_info()
 
-                print(tabulate(
-            [
-                ['phase_margin (deg)', self.phase_margin, self.phase_margin_target],
-                ['dcgain', self.dcgain, self.dcgain_target],
-                ['PSRP', self.PSRP, self.PSRP_target],
-                ['PSRN', self.PSRN, self.PSRN_target],
-                ['cmrrdc', self.cmrrdc, self.cmrrdc_target],
-                ['vos', self.vos, self.vos_target],
-                ['TC', self.TC, self.TC_target],
-                ['settlingTime', self.settlingTime, self.settlingTime_target], 
-                ['FOML', self.FOML, self.FOML_target],
-                ['FOMS', self.FOMS, self.FOMS_target],
-                ['Active Area', self.Active_Area, self.Active_Area_target],
+                # 更新最佳reward
+                if reward > best_reward:
+                    best_reward = reward
 
-                ['Power', self.Power, self.Power_target],
-                ['GBW', self.GBW, self.GBW_target],
-                ['sr', self.sr, self.sr_target],
+                # 构建表格输出
+                table = tabulate(
+                    [
+                        ['corner', corner_name],
+                        ['phase_margin (deg)', self.phase_margin, self.phase_margin_target],
+                        ['dcgain', self.dcgain, self.dcgain_target],
+                        ['PSRP', self.PSRP, self.PSRP_target],
+                        ['PSRN', self.PSRN, self.PSRN_target],
+                        ['cmrrdc', self.cmrrdc, self.cmrrdc_target],
+                        ['vos', self.vos, self.vos_target],
+                        ['TC', self.TC, self.TC_target],
+                        ['settlingTime', self.settlingTime, self.settlingTime_target], 
+                        ['FOML', self.FOML, self.FOML_target],
+                        ['FOMS', self.FOMS, self.FOMS_target],
+                        ['Active Area', self.Active_Area, self.Active_Area_target],
+                        ['Power', self.Power, self.Power_target],
+                        ['GBW', self.GBW, self.GBW_target],
+                        ['sr', self.sr, self.sr_target],
+                        ['FOM_AMP', self.FOM_AMP, ''],
+                        ['phase_margin (deg) score', self.phase_margin_score, ''],
+                        ['dcgain score', self.dcgain_score, ''],
+                        ['PSRP score', self.PSRP_score, ''],
+                        ['PSRN score', self.PSRN_score, ''],
+                        ['cmrrdc score', self.cmrrdc_score, ''],
+                        ['vos score', self.vos_score, ''],
+                        ['TC score', self.TC_score, ''],
+                        ['settlingTime score', self.settlingTime_score,''],
+                        ['FOML score', self.FOML_score,''],
+                        ['FOMS score', self.FOMS_score,''],
+                        ['Active Area', self.Active_Area_score,''],          
+                        ['Power score', self.Power_score, ''],
+                        ['GBW score', self.GBW_score, ''],
+                        ['sr score', self.sr_score, ''],         
+                        ['Reward', reward, '']
+                    ],
+                    headers=['param', 'num', 'target'], 
+                    tablefmt='orgtbl', 
+                    numalign='right', 
+                    floatfmt=".8f"
+                )
                 
-                ['FOM_AMP', self.FOM_AMP, ''],
-
-                ['phase_margin (deg) score', self.phase_margin_score, ''],
-                ['dcgain score', self.dcgain_score, ''],
-                ['PSRP score', self.PSRP_score, ''],
-                ['PSRN score', self.PSRN_score, ''],
-                ['cmrrdc score', self.cmrrdc_score, ''],
-                ['vos score', self.vos_score, ''],
-                ['TC score', self.TC_score, ''],
-                ['settlingTime score', self.settlingTime_score,''],
-                ['FOML score', self.FOML_score,''],
-                ['FOMS score', self.FOMS_score,''],
-                ['Active Area', self.Active_Area_score,''],          
-
-                ['Power score', self.Power_score, ''],
-                ['GBW score', self.GBW_score, ''],
-                ['sr score', self.sr_score, ''],         
- 
-                ['Reward', reward, '']
-                ],
-            headers=['param', 'num', 'target'], tablefmt='orgtbl', numalign='right', floatfmt=".8f"
-            ))
+                print(table)  # 仍然打印到控制台
+                if save_results:
+                    output_text.append(f"\nCorner: {corner_name}\n")
+                    output_text.append(table + "\n")
                 
                 simulation_results[idx] = {
                     'observation': observation,
                     'info': info,
                     'reward': reward
                 }
-                
-        print(f'Time consumed: {end_time - start_time:.2f} seconds')  # Print consumed time
-        
+
+        print(f'Time consumed: {end_time - start_time:.2f} seconds')
+
+        if save_results:
+            # 创建results目录
+            os.makedirs('./saved_results', exist_ok=True)
+            
+            # 生成文件名，包含时间、最佳reward和角点数量
+            current_time = datetime.now().strftime('%m%d_%H%M')
+            filename = f'./saved_results/results_reward:{best_reward:.4f}_corners:{len(corner_indices)}_{current_time}.txt'
+            
+            # 写入文件
+            with open(filename, 'w') as f:
+                f.writelines(output_text)
+                f.write(f'\nTime consumed: {end_time - start_time:.2f} seconds\n')
+            print(f"Results have been saved to {filename}")
+
         return simulation_results, True
 
 
