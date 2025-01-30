@@ -791,7 +791,7 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         print('*** Simulations Start! ***')        
         # 并行执行所有仿真
         simulation_results = {}
-        with ProcessPoolExecutor() as executor:
+        with ProcessPoolExecutor(max_workers=len(simulation_commands)) as executor:
             try:
                 futures = [executor.submit(self.run_single_simulation, cmd, name) 
                         for cmd, name in simulation_commands]
@@ -948,24 +948,28 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         M_M23 = int(M_M23)
         M_C0 = int(M_C0)
         M_C1 = int(M_C1)
-
+        
         try:
-            # open the netlist of the testbench
-            AMP_NMCF_vars = open(f'{SPICE_NETLIST_DIR}/AMP_NMCF_vars.spice', 'r')
-            lines = AMP_NMCF_vars.readlines()
-            lines[0] = f'.param MOSFET_0_8_W_BIASCM_PMOS={W_M0} MOSFET_0_8_L_BIASCM_PMOS={L_M0} MOSFET_0_8_M_BIASCM_PMOS={M_M0}\n'
-            lines[1] = f'.param MOSFET_8_2_W_gm1_PMOS={W_M8} MOSFET_8_2_L_gm1_PMOS={L_M8} MOSFET_8_2_M_gm1_PMOS={M_M8}\n'
-            lines[2] = f'.param MOSFET_10_1_W_gm2_PMOS={W_M10} MOSFET_10_1_L_gm2_PMOS={L_M10} MOSFET_10_1_M_gm2_PMOS={M_M10}\n'
-            lines[3] = f'.param MOSFET_11_1_W_gmf2_PMOS={W_M11} MOSFET_11_1_L_gmf2_PMOS={L_M11} MOSFET_11_1_M_gmf2_PMOS={M_M11}\n'
-            lines[4] = f'.param MOSFET_17_7_W_BIASCM_NMOS={W_M17} MOSFET_17_7_L_BIASCM_NMOS={L_M17} MOSFET_17_7_M_BIASCM_NMOS={M_M17}\n'
-            lines[5] = f'.param MOSFET_21_2_W_LOAD2_NMOS={W_M21} MOSFET_21_2_L_LOAD2_NMOS={L_M21} MOSFET_21_2_M_LOAD2_NMOS={M_M21}\n'
-            lines[6] = f'.param MOSFET_23_1_W_gm3_NMOS={W_M23} MOSFET_23_1_L_gm3_NMOS={L_M23} MOSFET_23_1_M_gm3_NMOS={M_M23}\n'
-            lines[7] = f'.param CURRENT_0_BIAS={Ib}\n'
-            lines[8] = f'.param M_C0={M_C0}\n'
-            lines[9] = f'.param M_C1={M_C1}\n'
+            # 文件路径
+            file_path = f'{SPICE_NETLIST_DIR}/AMP_NMCF_vars.spice'
             
-            AMP_NMCF_vars = open(f'{SPICE_NETLIST_DIR}/AMP_NMCF_vars.spice', 'w')
-            AMP_NMCF_vars.writelines(lines)
-            AMP_NMCF_vars.close()
-        except:
-            print('vars file update ERROR')
+            # 定义内容
+            lines = [
+                f'.param MOSFET_0_8_W_BIASCM_PMOS={W_M0} MOSFET_0_8_L_BIASCM_PMOS={L_M0} MOSFET_0_8_M_BIASCM_PMOS={M_M0}\n',
+                f'.param MOSFET_8_2_W_gm1_PMOS={W_M8} MOSFET_8_2_L_gm1_PMOS={L_M8} MOSFET_8_2_M_gm1_PMOS={M_M8}\n',
+                f'.param MOSFET_10_1_W_gm2_PMOS={W_M10} MOSFET_10_1_L_gm2_PMOS={L_M10} MOSFET_10_1_M_gm2_PMOS={M_M10}\n',
+                f'.param MOSFET_11_1_W_gmf2_PMOS={W_M11} MOSFET_11_1_L_gmf2_PMOS={L_M11} MOSFET_11_1_M_gmf2_PMOS={M_M11}\n',
+                f'.param MOSFET_17_7_W_BIASCM_NMOS={W_M17} MOSFET_17_7_L_BIASCM_NMOS={L_M17} MOSFET_17_7_M_BIASCM_NMOS={M_M17}\n',
+                f'.param MOSFET_21_2_W_LOAD2_NMOS={W_M21} MOSFET_21_2_L_LOAD2_NMOS={L_M21} MOSFET_21_2_M_LOAD2_NMOS={M_M21}\n',
+                f'.param MOSFET_23_1_W_gm3_NMOS={W_M23} MOSFET_23_1_L_gm3_NMOS={L_M23} MOSFET_23_1_M_gm3_NMOS={M_M23}\n',
+                f'.param CURRENT_0_BIAS={Ib}\n',
+                f'.param M_C0={M_C0}\n',
+                f'.param M_C1={M_C1}\n'
+            ]
+            
+            # 打开文件（如果文件不存在，自动创建并写入）
+            with open(file_path, 'w') as AMP_NMCF_vars:
+                AMP_NMCF_vars.writelines(lines)
+
+        except Exception as e:
+            print(f'vars file update ERROR: {e}')

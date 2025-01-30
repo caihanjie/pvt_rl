@@ -488,7 +488,7 @@ class DDPGAgent:
                 num_corners = len(corner_indices)
                 attention_weights = torch.ones(num_corners, device=self.device) / num_corners  # 每个角点权重为1/总角点数
             # 在采样的角点上执行动作
-            results_dict, flag, terminated, truncated, info = self.env.step((action, corner_indices))
+            results_dict, reward_no , terminated, truncated, info = self.env.step((action, corner_indices))
             
             # 更新PVT图并存储转换
             for corner_idx, result in results_dict.items():
