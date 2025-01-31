@@ -211,6 +211,7 @@ class DDPGAgent:
         self.is_test = False
 
         self.save_dir = 'plots'  # 保存图片的文件夹
+        self.save_rewards_dir = 'plots_rewards'  # 保存图片的文件夹
 
         # 如果文件夹不存在，则创建
         if not os.path.exists(self.save_dir):
@@ -247,6 +248,11 @@ class DDPGAgent:
             'temp': {'min': -40, 'max': 125},   # 温度范围
             'process': {'min': 0, 'max': 1}     # process corners (0,1,2)
         }
+
+        # 添加reward历史记录字典
+        self.corner_rewards_history = {}
+        # 为不同角点设置不同颜色
+        self.corner_colors = plt.cm.rainbow(np.linspace(0, 1, self.actor.pvt_graph.num_corners))  # 27个角点的不同颜色
 
     def _normalize_pvt_graph_state(self, state: torch.Tensor) -> torch.Tensor:
         """归一化PVT图状态
@@ -467,6 +473,10 @@ class DDPGAgent:
         scores = []
         score = 0
 
+        # 初始化reward历史记录
+        for corner_name in self.actor.pvt_graph.pvt_corners.keys():
+            self.corner_rewards_history[corner_name] = []
+
         for self.total_step in range(1, num_steps + 1):
             print(f'*** Step: {self.total_step} | Episode: {self.episode} ***')
             
@@ -493,7 +503,14 @@ class DDPGAgent:
                     result['info'],
                     result['reward']
                 )
-            
+                
+            # 更新reward历史记录
+            for idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                if idx in results_dict:  # 如果这个角点在当前step被采样
+                    reward = results_dict[idx]['reward']
+                else:  # 如果没有被采样，使用上一次的值
+                    reward = self.corner_rewards_history[corner_name][-1]
+                self.corner_rewards_history[corner_name].append(reward)
 
             # 更新状态
             pvt_graph_state = self.actor.pvt_graph.get_graph_features()
@@ -566,6 +583,7 @@ class DDPGAgent:
                     actor_losses,
                     critic_losses,
                 )
+            self.plot_corner_rewards()
 
         self.env.close()
 
@@ -679,3 +697,24 @@ class DDPGAgent:
         filename = os.path.join(self.save_dir, f"step_{step:06d}.png")
         plt.savefig(filename)
         plt.close('all')  # 确保关闭所有图形
+
+    def plot_corner_rewards(self):
+        """绘制PVT角点reward变化图"""
+        plt.figure(figsize=(10, 6))
+        plt.title('PVT Corner Rewards vs Steps')
+        plt.xlabel('Step')
+        plt.ylabel('Reward')
+        
+        for idx, (corner_name, rewards) in enumerate(self.corner_rewards_history.items()):
+            plt.plot(range(len(rewards)), rewards, 
+                    label=corner_name, 
+                    color=self.corner_colors[idx],
+                    alpha=0.7)
+        
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.grid(True)
+        
+        # 保存图像
+        filename = os.path.join(self.save_rewards_dir, f"corner_rewards_step_{self.total_step:06d}.png")
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()

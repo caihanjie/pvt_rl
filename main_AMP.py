@@ -48,7 +48,7 @@ if __name__ == '__main__':
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
-    initial_random_steps = 0
+    initial_random_steps = 2
     noise_type = 'uniform' 
 
     """ Run intial op experiment """
