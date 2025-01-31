@@ -45,7 +45,7 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         os.environ['OMP_NUM_THREADS'] = str(THREAD_NUM) 
         os.environ['OMP_THREAD_LIMIT'] = str(THREAD_NUM)
         os.environ['OMP_DYNAMIC'] = 'FALSE'
-        os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+        # os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
         
     def _initialize_simulation(self):
         self.W_M0, self.L_M0, self.M_M0, \
