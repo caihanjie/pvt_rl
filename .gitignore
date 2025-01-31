@@ -13,3 +13,4 @@ __pycache__/
 .DS_Store
 simulations/AMP_NMCF_vars.spice
 saved_results/
+plots_rewards/

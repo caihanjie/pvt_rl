@@ -40,6 +40,13 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         self.pvt_graph = PVTGraph()  # 添加PVT图实例
         self.THREAD_NUM = THREAD_NUM
         
+        # 设置OpenMP环境变量
+        THREAD_NUM = self.THREAD_NUM
+        os.environ['OMP_NUM_THREADS'] = str(THREAD_NUM) 
+        os.environ['OMP_THREAD_LIMIT'] = str(THREAD_NUM)
+        os.environ['OMP_DYNAMIC'] = 'FALSE'
+        os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+        
     def _initialize_simulation(self):
         self.W_M0, self.L_M0, self.M_M0, \
             self.W_M8, self.L_M8, self.M_M8,\
@@ -775,12 +782,7 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         """在多个PVT角点下并行执行仿真"""
         self._update_vars_file(action)
 
-        # 在主进程中设置 OpenMP 环境变量
-        THREAD_NUM = self.THREAD_NUM
-        os.environ['OMP_NUM_THREADS'] = str(THREAD_NUM) 
-        os.environ['OMP_THREAD_LIMIT'] = str(THREAD_NUM)
-        os.environ['OMP_DYNAMIC'] = 'FALSE'
-        
+
         # 准备所有仿真命令
         simulation_commands = []
         for corner_idx in corner_indices:

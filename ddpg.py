@@ -258,6 +258,9 @@ class DDPGAgent:
         # 为不同角点设置不同颜色
         self.corner_colors = plt.cm.rainbow(np.linspace(0, 1, self.actor.pvt_graph.num_corners))  # 27个角点的不同颜色
 
+        # 添加跳过步数计数器
+        self.skipped_steps = 0
+
     def _normalize_pvt_graph_state(self, state: torch.Tensor) -> torch.Tensor:
         """归一化PVT图状态
         
@@ -497,8 +500,14 @@ class DDPGAgent:
                 num_corners = len(corner_indices)
                 attention_weights = torch.ones(num_corners, device=self.device) / num_corners  # 每个角点权重为1/总角点数
             # 在采样的角点上执行动作
-            results_dict, reward_no , terminated, truncated, info = self.env.step((action, corner_indices))
+            results_dict, reward_no, terminated, truncated, info = self.env.step((action, corner_indices))
             
+            # 添加错误处理
+            if results_dict is None:
+                print("Warning: results_dict is None, skipping this step")
+                self.skipped_steps += 1  # 增加计数
+                continue
+                
             # 更新PVT图并存储转换
             for corner_idx, result in results_dict.items():
                 # 更新PVT图中角点的性能和reward
@@ -563,7 +572,6 @@ class DDPGAgent:
                 self.episode += 1
                 scores.append(score)
                 score = 0
-                raise ValueError("error reset")
 
             print(f'*** The progress of the PVT graph ***')
             # 打印PVT图进度
@@ -589,6 +597,10 @@ class DDPGAgent:
                 )
             self.plot_corner_rewards()
 
+        print(f"\nTraining completed:")
+        print(f"Total steps: {num_steps}")
+        print(f"Skipped steps: {self.skipped_steps}")
+        
         self.env.close()
 
     def test(self):
