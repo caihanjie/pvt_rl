@@ -537,10 +537,12 @@ class DDPGAgent:
                         result['info'],
                         result['reward']
                     )
+                
                 pvt_graph_state = self.actor.pvt_graph.get_graph_features()
                 self.episode += 1
                 scores.append(score)
                 score = 0
+                raise ValueError("error reset")
 
             print(f'*** The progress of the PVT graph ***')
             # 打印PVT图进度
