@@ -40,6 +40,8 @@ if __name__ == '__main__':
     GNN = ActorCriticPVTGAT # you can select other GNN
 
     # parameters
+    load_buffer = True
+    buffer_path = './saved_memories/memory_GraphAMPNMCF_2025-01-31_noise=uniform_reward=-3.61_ActorCriticPVTGAT.pkl'  
     THREAD_NUM = 2
     sample_num = 2
     num_steps = 4
@@ -95,6 +97,9 @@ if __name__ == '__main__':
         sample_num=sample_num
     )
 
+    if load_buffer == True:
+        agent.load_replay_buffer(buffer_path)
+    
     # train the agent
     agent.train(num_steps)
 

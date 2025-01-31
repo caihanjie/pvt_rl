@@ -7,6 +7,7 @@ import os
 from torch.nn import LazyLinear
 import torch.nn.functional as F
 import torch.optim as optim
+import pickle
 
 from utils import trunc_normal
 
@@ -26,7 +27,7 @@ class ReplayBuffer:
         self.num_nodes = CktGraph.num_nodes
         self.pvt_dim = PVT_Graph.corner_dim
         self.num_corners = PVT_Graph.num_corners
-        
+        self.pvt_graph = PVT_Graph
 
         # 为每个角点创建独立的buffer
         self.corner_buffers = {}  # 格式: {corner_idx: {obs, info, reward}}
@@ -39,12 +40,14 @@ class ReplayBuffer:
         self.batch_size = batch_size
         self.ptr = 0
         self.size = 0
+        self._init_corner_buffer()
 
-    def _init_corner_buffer(self, corner_idx):
+    def _init_corner_buffer(self):
         """为新的角点初始化buffer"""
-        if corner_idx not in self.corner_buffers:
+        for corner_idx , corner_name in enumerate(self.pvt_graph.pvt_corners.keys()):
             self.corner_buffers[corner_idx] = {
                 # 原始角点数据
+                'name': corner_name,
                 'obs': np.zeros([self.max_size, self.num_nodes, self.num_node_features], dtype=np.float32),
                 'next_obs': np.zeros([self.max_size, self.num_nodes, self.num_node_features], dtype=np.float32),
                 'info': np.zeros([self.max_size], dtype=object),
@@ -84,7 +87,6 @@ class ReplayBuffer:
         
         # 存储每个角点的结果
         for corner_idx, result in results_dict.items():
-            self._init_corner_buffer(corner_idx)
             buffer = self.corner_buffers[corner_idx]
             ptr = buffer['ptr']
             
@@ -734,3 +736,50 @@ class DDPGAgent:
         filename = os.path.join(self.save_rewards_dir, f"corner_rewards_step_{self.total_step:06d}.png")
         plt.savefig(filename, bbox_inches='tight')
         plt.close()
+
+    def load_replay_buffer(self, buffer_path):
+        """加载已保存的replay buffer并转移数据到当前agent的buffer中"""
+        if not os.path.exists(buffer_path):
+            print(f"No saved buffer found at {buffer_path}")
+            return
+            
+        print(f"\nLoading replay buffer from {buffer_path}")
+        
+        # 打印当前buffer的角点信息
+        print("\nCurrent buffer corners:")
+        for idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+            print(f"Index {idx}: {corner_name}")
+            
+        # 加载保存的buffer
+        with open(buffer_path, 'rb') as f:
+            saved_buffer = pickle.load(f)
+        
+        # 打印保存的buffer的角点信息    
+        print("\nSaved buffer corners:")
+        for corner_idx, saved_corner_buffer_idx in enumerate(saved_buffer.corner_buffers.keys()):
+            print(f"Index {corner_idx}: {saved_corner_buffer_idx} : {saved_buffer.corner_buffers[saved_corner_buffer_idx]['name']}")
+            
+        # 转移数据到新的buffer
+        for corner_idx, saved_corner_buffer in saved_buffer.corner_buffers.items():
+            buffer = self.memory.corner_buffers[corner_idx]
+            
+            # 复制所有数据
+            buffer['obs'][:saved_corner_buffer['size']] = saved_corner_buffer['obs'][:saved_corner_buffer['size']]
+            buffer['next_obs'][:saved_corner_buffer['size']] = saved_corner_buffer['next_obs'][:saved_corner_buffer['size']]
+            buffer['info'][:saved_corner_buffer['size']] = saved_corner_buffer['info'][:saved_corner_buffer['size']]
+            buffer['reward'][:saved_corner_buffer['size']] = saved_corner_buffer['reward'][:saved_corner_buffer['size']]
+            buffer['pvt_state'][:saved_corner_buffer['size']] = saved_corner_buffer['pvt_state'][:saved_corner_buffer['size']]
+            buffer['next_pvt_state'][:saved_corner_buffer['size']] = saved_corner_buffer['next_pvt_state'][:saved_corner_buffer['size']]
+            buffer['action'][:saved_corner_buffer['size']] = saved_corner_buffer['action'][:saved_corner_buffer['size']]
+            buffer['corner_indices'] = saved_corner_buffer['corner_indices'][:saved_corner_buffer['size']]
+            buffer['attention_weights'][:saved_corner_buffer['size']] = saved_corner_buffer['attention_weights'][:saved_corner_buffer['size']]
+            buffer['total_reward'][:saved_corner_buffer['size']] = saved_corner_buffer['total_reward'][:saved_corner_buffer['size']]
+            buffer['done'][:saved_corner_buffer['size']] = saved_corner_buffer['done'][:saved_corner_buffer['size']]
+            
+            buffer['ptr'] = saved_corner_buffer['ptr']
+            buffer['size'] = saved_corner_buffer['size']
+            
+            print(f"Loaded data for corner {corner_idx} ({saved_corner_buffer['name']}) to ({buffer['name']})")
+            print(f"  Size: {buffer['size']}")
+            
+        print(f"\nSuccessfully loaded replay buffer with {len(saved_buffer.corner_buffers)} corners")
