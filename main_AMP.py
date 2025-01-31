@@ -41,13 +41,14 @@ if __name__ == '__main__':
 
     # parameters
     THREAD_NUM = 2
-    num_steps = 5000
-    memory_size = 5100
-    batch_size = 128
+    sample_num = 2
+    num_steps = 4
+    memory_size = 5
+    batch_size = 1
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
-    initial_random_steps = 200
+    initial_random_steps = 0
     noise_type = 'uniform' 
 
     """ Run intial op experiment """
@@ -72,7 +73,7 @@ if __name__ == '__main__':
     register(
             id = env_id,
             entry_point = 'AMP_NMCF:AMPNMCFEnv',
-            max_episode_steps = 50,
+            max_episode_steps = 100000,   #!!!no limit of steps
             kwargs={'THREAD_NUM': THREAD_NUM}
             )
     env = gym.make(env_id)  
@@ -91,6 +92,7 @@ if __name__ == '__main__':
         noise_sigma_decay,
         initial_random_steps=initial_random_steps,
         noise_type=noise_type, 
+        sample_num=sample_num
     )
 
     # train the agent

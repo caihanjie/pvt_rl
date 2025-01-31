@@ -9,9 +9,9 @@ class PVTGraph:
         self.pvt_corners = {
             'tt_027C_1v80': [1, 0, 0, 0, 0, 27 ,1.8],  
             'ff_027C_1v80': [0, 1, 0, 0, 0, 27 ,1.8],
-            'ss_027C_1v80': [0, 0, 1, 0, 0, 27 ,1.8],
-            'fs_027C_1v80': [0, 0, 0, 1, 0, 27 ,1.8],
-            'sf_027C_1v80': [0, 0, 0, 0, 1, 27 ,1.8]
+            'ss_027C_1v80': [0, 0, 1, 0, 0, 27 ,1.8]
+            # 'fs_027C_1v80': [0, 0, 0, 1, 0, 27 ,1.8],
+            # 'sf_027C_1v80': [0, 0, 0, 0, 1, 27 ,1.8]
         }
         
         self.PWD = os.getcwd()
@@ -194,16 +194,7 @@ set num_threads=8"""
         performance = list(info_dict.values())
         self.node_features[corner_idx, 7:21] = performance  # 更新性能指标
         self.node_features[corner_idx, 21] = reward        # 更新reward
-            
-    def get_state(self):
-        """
-        获取当前PVT图的状态表示
-        返回: 节点特征矩阵和边索引
-        """
-        node_features = torch.tensor(self.node_features, dtype=torch.float32).to(self.device)
-        edge_index = self.edge_index.to(self.device)
-        return node_features, edge_index
-        
+
     def get_corner_name(self, idx):
         """根据索引获取角点名称"""
         return list(self.pvt_corners.keys())[idx]

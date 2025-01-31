@@ -27,14 +27,7 @@ class ReplayBuffer:
         self.pvt_dim = PVT_Graph.corner_dim
         self.num_corners = PVT_Graph.num_corners
         
-        # # PVT图状态buffer
-        # self.pvt_state_buf = np.zeros([size, self.num_corners, self.pvt_dim], dtype=np.float32)
-        # self.next_pvt_state_buf = np.zeros([size, self.num_corners, self.pvt_dim], dtype=np.float32)
-        
-        # # 角点相关buffer
-        # self.corner_indices_buf = []  # 存储采样的角点索引列表
-        # self.attention_weights_buf = np.zeros([size, 3], dtype=np.float32)  # 假设每次采样3个角点
-        
+
         # 为每个角点创建独立的buffer
         self.corner_buffers = {}  # 格式: {corner_idx: {obs, info, reward}}
         
@@ -181,6 +174,7 @@ class DDPGAgent:
         gamma: float = 0.99,
         tau: float = 5e-3,
         initial_random_steps: int = 1e4,
+        sample_num: int = 3
     ):
         super().__init__()
         """Initialize."""
@@ -194,6 +188,7 @@ class DDPGAgent:
         self.gamma = gamma
         self.tau = tau
         self.initial_random_steps = initial_random_steps
+        self.sample_num = sample_num
 
         self.episode = 0
         self.device = CktGraph.device
@@ -373,7 +368,7 @@ class DDPGAgent:
         print("*** Update the model by gradient descent. ***")
         
         # 获取当前选择的角点
-        _, corner_indices = self.actor.sample_corners(num_samples=3)
+        _, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
         
         # 从每个选定的角点缓冲区采样数据
         corner_batches = {}
@@ -479,7 +474,7 @@ class DDPGAgent:
             action = self.select_action(pvt_graph_state)
             
             if self.total_step >= self.initial_random_steps:
-                attention_weights, corner_indices = self.actor.sample_corners(num_samples=3)
+                attention_weights, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
                 print(f'*** corner_indices: {corner_indices} ***')
             else:
                 # 在随机探索阶段,使用所有角点
@@ -547,6 +542,14 @@ class DDPGAgent:
                 scores.append(score)
                 score = 0
 
+            print(f'*** The progress of the PVT graph ***')
+            # 打印PVT图进度
+            print("\nPVT Graph Rewards:")
+            for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                print(f"{corner_name}: reward = {reward:.4f}")
+            print()
+
             # 如果满足训练条件则更新模型
             if  self.total_step > self.initial_random_steps:
                 actor_loss, critic_loss = self.update_model()
@@ -588,7 +591,7 @@ class DDPGAgent:
             action = self.select_action(pvt_graph_state)
             
             # 采样PVT角点并获取注意力权重
-            attention_weights, corner_indices = self.actor.sample_corners(num_samples=3)
+            attention_weights, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
             
             # 在采样的角点上执行动作 - 修改这里，分别传入两个参数
             results_dict, terminated, truncated = self.env.step((action, corner_indices))
