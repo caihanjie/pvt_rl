@@ -64,7 +64,7 @@ class ReplayBuffer:
                 # 动作相关
                 'action': np.zeros([self.max_size, self.action_dim], dtype=np.float32),
                 'corner_indices': [],  # 存储采样的角点索引列表
-                'attention_weights': np.zeros([self.max_size, 5], dtype=np.float32),
+                'attention_weights': np.zeros([self.max_size, self.num_corners], dtype=np.float32),
                 
                 # 其他信息
                 'total_reward': np.zeros([self.max_size], dtype=np.float32),
@@ -86,8 +86,8 @@ class ReplayBuffer:
         done: bool,
     ):
         """存储一个transition"""
-        if len(attention_weights) != 5:
-            attention_weights = np.pad(attention_weights, (0, 5 - len(attention_weights)))
+        if len(attention_weights) != self.num_corners:
+            attention_weights = np.pad(attention_weights, (0, self.num_corners - len(attention_weights)))
         
         # 存储每个角点的结果
         for corner_idx, result in results_dict.items():

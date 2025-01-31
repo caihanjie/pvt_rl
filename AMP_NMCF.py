@@ -26,7 +26,7 @@ CktGraph = GraphAMPNMCF
             
 class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
 
-    def __init__(self):
+    def __init__(self, THREAD_NUM):
         gym.Env.__init__(self)
         CktGraph.__init__(self)
         DeviceParams.__init__(self, self.ckt_hierarchy)
@@ -38,6 +38,7 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         self.SPICE_NETLIST_DIR = f'{self.PWD}/simulations'
 
         self.pvt_graph = PVTGraph()  # 添加PVT图实例
+        self.THREAD_NUM = THREAD_NUM
         
     def _initialize_simulation(self):
         self.W_M0, self.L_M0, self.M_M0, \
@@ -773,6 +774,12 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
     def _do_parallel_simulation(self, action, corner_indices, save_results=False):
         """在多个PVT角点下并行执行仿真"""
         self._update_vars_file(action)
+
+        # 在主进程中设置 OpenMP 环境变量
+        THREAD_NUM = self.THREAD_NUM
+        os.environ['OMP_NUM_THREADS'] = str(THREAD_NUM) 
+        os.environ['OMP_THREAD_LIMIT'] = str(THREAD_NUM)
+        os.environ['OMP_DYNAMIC'] = 'FALSE'
         
         # 准备所有仿真命令
         simulation_commands = []
@@ -791,6 +798,8 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         print('*** Simulations Start! ***')        
         # 并行执行所有仿真
         simulation_results = {}
+        # max_workers = min(len(simulation_commands), multiprocessing.cpu_count())
+    
         with ProcessPoolExecutor(max_workers=len(simulation_commands)) as executor:
             try:
                 futures = [executor.submit(self.run_single_simulation, cmd, name) 
