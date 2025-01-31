@@ -27,14 +27,7 @@ class ReplayBuffer:
         self.pvt_dim = PVT_Graph.corner_dim
         self.num_corners = PVT_Graph.num_corners
         
-        # # PVT图状态buffer
-        # self.pvt_state_buf = np.zeros([size, self.num_corners, self.pvt_dim], dtype=np.float32)
-        # self.next_pvt_state_buf = np.zeros([size, self.num_corners, self.pvt_dim], dtype=np.float32)
-        
-        # # 角点相关buffer
-        # self.corner_indices_buf = []  # 存储采样的角点索引列表
-        # self.attention_weights_buf = np.zeros([size, 3], dtype=np.float32)  # 假设每次采样3个角点
-        
+
         # 为每个角点创建独立的buffer
         self.corner_buffers = {}  # 格式: {corner_idx: {obs, info, reward}}
         
@@ -64,7 +57,7 @@ class ReplayBuffer:
                 # 动作相关
                 'action': np.zeros([self.max_size, self.action_dim], dtype=np.float32),
                 'corner_indices': [],  # 存储采样的角点索引列表
-                'attention_weights': np.zeros([self.max_size, 5], dtype=np.float32),
+                'attention_weights': np.zeros([self.max_size, self.num_corners], dtype=np.float32),
                 
                 # 其他信息
                 'total_reward': np.zeros([self.max_size], dtype=np.float32),
@@ -86,8 +79,8 @@ class ReplayBuffer:
         done: bool,
     ):
         """存储一个transition"""
-        if len(attention_weights) != 5:
-            attention_weights = np.pad(attention_weights, (0, 5 - len(attention_weights)))
+        if len(attention_weights) != self.num_corners:
+            attention_weights = np.pad(attention_weights, (0, self.num_corners - len(attention_weights)))
         
         # 存储每个角点的结果
         for corner_idx, result in results_dict.items():
@@ -181,6 +174,7 @@ class DDPGAgent:
         gamma: float = 0.99,
         tau: float = 5e-3,
         initial_random_steps: int = 1e4,
+        sample_num: int = 3
     ):
         super().__init__()
         """Initialize."""
@@ -194,6 +188,7 @@ class DDPGAgent:
         self.gamma = gamma
         self.tau = tau
         self.initial_random_steps = initial_random_steps
+        self.sample_num = sample_num
 
         self.episode = 0
         self.device = CktGraph.device
@@ -216,6 +211,7 @@ class DDPGAgent:
         self.is_test = False
 
         self.save_dir = 'plots'  # 保存图片的文件夹
+        self.save_rewards_dir = 'plots_rewards'  # 保存图片的文件夹
 
         # 如果文件夹不存在，则创建
         if not os.path.exists(self.save_dir):
@@ -252,6 +248,11 @@ class DDPGAgent:
             'temp': {'min': -40, 'max': 125},   # 温度范围
             'process': {'min': 0, 'max': 1}     # process corners (0,1,2)
         }
+
+        # 添加reward历史记录字典
+        self.corner_rewards_history = {}
+        # 为不同角点设置不同颜色
+        self.corner_colors = plt.cm.rainbow(np.linspace(0, 1, self.actor.pvt_graph.num_corners))  # 27个角点的不同颜色
 
     def _normalize_pvt_graph_state(self, state: torch.Tensor) -> torch.Tensor:
         """归一化PVT图状态
@@ -373,7 +374,7 @@ class DDPGAgent:
         print("*** Update the model by gradient descent. ***")
         
         # 获取当前选择的角点
-        _, corner_indices = self.actor.sample_corners(num_samples=3)
+        _, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
         
         # 从每个选定的角点缓冲区采样数据
         corner_batches = {}
@@ -472,6 +473,10 @@ class DDPGAgent:
         scores = []
         score = 0
 
+        # 初始化reward历史记录
+        for corner_name in self.actor.pvt_graph.pvt_corners.keys():
+            self.corner_rewards_history[corner_name] = []
+
         for self.total_step in range(1, num_steps + 1):
             print(f'*** Step: {self.total_step} | Episode: {self.episode} ***')
             
@@ -479,7 +484,7 @@ class DDPGAgent:
             action = self.select_action(pvt_graph_state)
             
             if self.total_step >= self.initial_random_steps:
-                attention_weights, corner_indices = self.actor.sample_corners(num_samples=3)
+                attention_weights, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
                 print(f'*** corner_indices: {corner_indices} ***')
             else:
                 # 在随机探索阶段,使用所有角点
@@ -498,7 +503,14 @@ class DDPGAgent:
                     result['info'],
                     result['reward']
                 )
-            
+                
+            # 更新reward历史记录
+            for idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                if idx in results_dict:  # 如果这个角点在当前step被采样
+                    reward = results_dict[idx]['reward']
+                else:  # 如果没有被采样，使用上一次的值
+                    reward = self.corner_rewards_history[corner_name][-1]
+                self.corner_rewards_history[corner_name].append(reward)
 
             # 更新状态
             pvt_graph_state = self.actor.pvt_graph.get_graph_features()
@@ -542,10 +554,20 @@ class DDPGAgent:
                         result['info'],
                         result['reward']
                     )
+                
                 pvt_graph_state = self.actor.pvt_graph.get_graph_features()
                 self.episode += 1
                 scores.append(score)
                 score = 0
+                raise ValueError("error reset")
+
+            print(f'*** The progress of the PVT graph ***')
+            # 打印PVT图进度
+            print("\nPVT Graph Rewards:")
+            for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                print(f"{corner_name}: reward = {reward:.4f}")
+            print()
 
             # 如果满足训练条件则更新模型
             if  self.total_step > self.initial_random_steps:
@@ -561,6 +583,7 @@ class DDPGAgent:
                     actor_losses,
                     critic_losses,
                 )
+            self.plot_corner_rewards()
 
         self.env.close()
 
@@ -588,7 +611,7 @@ class DDPGAgent:
             action = self.select_action(pvt_graph_state)
             
             # 采样PVT角点并获取注意力权重
-            attention_weights, corner_indices = self.actor.sample_corners(num_samples=3)
+            attention_weights, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
             
             # 在采样的角点上执行动作 - 修改这里，分别传入两个参数
             results_dict, terminated, truncated = self.env.step((action, corner_indices))
@@ -674,3 +697,24 @@ class DDPGAgent:
         filename = os.path.join(self.save_dir, f"step_{step:06d}.png")
         plt.savefig(filename)
         plt.close('all')  # 确保关闭所有图形
+
+    def plot_corner_rewards(self):
+        """绘制PVT角点reward变化图"""
+        plt.figure(figsize=(10, 6))
+        plt.title('PVT Corner Rewards vs Steps')
+        plt.xlabel('Step')
+        plt.ylabel('Reward')
+        
+        for idx, (corner_name, rewards) in enumerate(self.corner_rewards_history.items()):
+            plt.plot(range(len(rewards)), rewards, 
+                    label=corner_name, 
+                    color=self.corner_colors[idx],
+                    alpha=0.7)
+        
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.grid(True)
+        
+        # 保存图像
+        filename = os.path.join(self.save_rewards_dir, f"corner_rewards_step_{self.total_step:06d}.png")
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
