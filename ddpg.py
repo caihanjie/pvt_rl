@@ -475,7 +475,7 @@ class DDPGAgent:
         
             # 更新PVT图
             for corner_idx, result in results_dict.items():
-                self.actor.pvt_graph.update_performance_and_reward_r(
+                self.actor.update_pvt_performance_r(
                     corner_idx,
                     result['info'],
                     result['reward']
@@ -504,25 +504,30 @@ class DDPGAgent:
             self.noise_sigma = saved_agent.noise_sigma
             self.initial_random_steps = 0
             print(f"Traning from steps: {self.total_step}")
-            self.corner_rewards_history = saved_agent.corner_rewards_history
-            print(f'*** The progress of the PVT graph ***')
-            # 打印PVT图进度
-            print("\nHistory PVT Graph Rewards:")
-            for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
-                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
-                print(f"{corner_name}: reward = {reward:.4f}")
-            print()
+
 
             if not self.old:
                 self.actor_losses = saved_agent.actor_losses
                 self.critic_losses = saved_agent.critic_losses
                 self.scores = saved_agent.scores
                 self.score = saved_agent.score
+                self.corner_rewards_history = saved_agent.corner_rewards_history
+                print(f'*** The progress of the PVT graph ***')
+                # 打印PVT图进度
+                print("\nHistory PVT Graph Rewards:")
+                for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                    reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                    print(f"{corner_name}: reward = {reward:.4f}")
+                print()
+
             else:
                 self.actor_losses = []
                 self.critic_losses = []
                 self.scores = []
                 self.score = 0
+                # 初始化reward历史记录
+                for corner_name in self.actor.pvt_graph.pvt_corners.keys():
+                    self.corner_rewards_history[corner_name] = [-5]
 
         for step in range(1, num_steps + 1):
             self.total_step += 1
@@ -655,7 +660,7 @@ class DDPGAgent:
         
         # 更新PVT图
         for corner_idx, result in results_dict.items():
-            self.actor.pvt_graph.update_performance_and_reward_r(
+            self.actor.update_pvt_performance_r(
                 corner_idx,
                 result['info'],
                 result['reward']

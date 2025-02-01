@@ -40,10 +40,10 @@ if __name__ == '__main__':
     GNN = ActorCriticPVTGAT # you can select other GNN
 
 # parameters
-    continue_training = True  # 是否加载已保存的agent
-    laststeps = 2000
+    continue_training = False  # 是否加载已保存的agent
+    laststeps = 0
     old=True
-    agent_folder = './saved_results/02-01_22-51_steps9_corners-5_reward--3.39'  # 已保存agent的文件夹路径
+    agent_folder = './saved_results/saved_0.81'  # 已保存agent的文件夹路径
 
     load_buffer = False
     load_buffer_size = 0
