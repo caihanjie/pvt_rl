@@ -39,30 +39,31 @@ if __name__ == '__main__':
     CktGraph = GraphAMPNMCF
     GNN = ActorCriticPVTGAT # you can select other GNN
 
-    # parameters
+# parameters
     continue_training = True  # 是否加载已保存的agent
+    laststeps = 9
+    old=True
     agent_folder = './saved_results/02-01_22-51_steps9_corners-5_reward--3.39'  # 已保存agent的文件夹路径
 
     load_buffer = False
+    load_buffer_size = 0
     buffer_path = './saved_memories/memory_GraphAMPNMCF_2025-01-31_noise=uniform_reward=-3.61_ActorCriticPVTGAT.pkl'  
 
     plot_interval = 1
-    print_interval = 5
+    print_interval = 1
+
     sample_num = 2
     num_steps = 9
-
-    laststeps = 0
-    buffer_size = 0
-    old=False
-
+    initial_random_steps = 0
     batch_size = 1
+    
+    check_interval = 4
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
-    initial_random_steps = 2
     noise_type = 'uniform' 
     THREAD_NUM = 2
-    memory_size = laststeps + num_steps+ 10 + buffer_size
+    memory_size = laststeps + num_steps+ 10 + load_buffer_size
 
     """ Run intial op experiment """
 
@@ -116,7 +117,7 @@ if __name__ == '__main__':
         agent.load_replay_buffer(buffer_path)
     
     # train the agent
-    agent.train(num_steps, plot_interval ,continue_training=continue_training)
+    agent.train(num_steps, plot_interval ,check_interval , continue_training=continue_training)
 
     print("********Replay the best results********")
     memory = agent.memory
