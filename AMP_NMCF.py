@@ -927,7 +927,7 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
             
             # 生成文件名，包含时间、最佳reward和角点数量
             current_time = datetime.now().strftime('%m%d_%H%M')
-            filename = f'./saved_results/results_reward:{best_reward:.4f}_corners:{len(corner_indices)}_{current_time}.txt'
+            filename = f'./saved_results/results_reward_{best_reward:.4f}_corners_{len(corner_indices)}_{current_time}.txt'
             
             # 写入文件
             with open(filename, 'w') as f:
