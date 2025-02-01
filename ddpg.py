@@ -212,12 +212,15 @@ class DDPGAgent:
         self.noise_type = noise_type
         self.is_test = False
 
-        self.save_dir = 'plots'  # 保存图片的文件夹
-        self.save_rewards_dir = 'plots_rewards'  # 保存图片的文件夹
+        self.plots_dir = 'plots'  # 保存图片的文件夹
+        self.plots_rewards_dir = 'plots_rewards'  # 保存图片的文件夹
 
         # 如果文件夹不存在，则创建
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
+        if not os.path.exists(self.plots_dir):
+            os.makedirs(self.plots_dir )
+
+        if not os.path.exists(self.plots_rewards_dir):
+            os.makedirs(self.plots_rewards_dir)
 
 
         # 添加PVT相关属性
