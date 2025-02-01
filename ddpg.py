@@ -712,7 +712,7 @@ class DDPGAgent:
             subplot(loc, title, values)
         
         # 保存图像
-        filename = os.path.join(self.save_dir, f"step_{step:06d}.png")
+        filename = os.path.join(self.plots_dir, f"step_{step:06d}.png")
         plt.savefig(filename)
         plt.close('all')  # 确保关闭所有图形
 
@@ -733,7 +733,7 @@ class DDPGAgent:
         plt.grid(True)
         
         # 保存图像
-        filename = os.path.join(self.save_rewards_dir, f"corner_rewards_step_{self.total_step:06d}.png")
+        filename = os.path.join(self.plots_rewards_dir, f"corner_rewards_step_{self.total_step:06d}.png")
         plt.savefig(filename, bbox_inches='tight')
         plt.close()
 
