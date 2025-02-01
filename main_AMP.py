@@ -40,19 +40,29 @@ if __name__ == '__main__':
     GNN = ActorCriticPVTGAT # you can select other GNN
 
     # parameters
+    continue_training = True  # 是否加载已保存的agent
+    agent_folder = './saved_results/02-01_22-51_steps9_corners-5_reward--3.39'  # 已保存agent的文件夹路径
+
     load_buffer = False
     buffer_path = './saved_memories/memory_GraphAMPNMCF_2025-01-31_noise=uniform_reward=-3.61_ActorCriticPVTGAT.pkl'  
-    THREAD_NUM = 2
+
     plot_interval = 1
+    print_interval = 5
     sample_num = 2
-    num_steps = 4
-    memory_size = 5
+    num_steps = 9
+
+    laststeps = 0
+    buffer_size = 0
+    old=False
+
     batch_size = 1
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
     initial_random_steps = 2
     noise_type = 'uniform' 
+    THREAD_NUM = 2
+    memory_size = laststeps + num_steps+ 10 + buffer_size
 
     """ Run intial op experiment """
 
@@ -77,11 +87,13 @@ if __name__ == '__main__':
             id = env_id,
             entry_point = 'AMP_NMCF:AMPNMCFEnv',
             max_episode_steps = 100000,   #!!!no limit of steps
-            kwargs={'THREAD_NUM': THREAD_NUM}
+            kwargs={'THREAD_NUM': THREAD_NUM ,'print_interval':print_interval}
             )
     env = gym.make(env_id)  
     #remote
 
+                
+    # 创建新agent实例
     agent = DDPGAgent(
         env, 
         CktGraph(),
@@ -95,14 +107,16 @@ if __name__ == '__main__':
         noise_sigma_decay,
         initial_random_steps=initial_random_steps,
         noise_type=noise_type, 
-        sample_num=sample_num
+        sample_num=sample_num,
+        agent_folder= agent_folder,
+        old = old
     )
-
+    
     if load_buffer == True:
         agent.load_replay_buffer(buffer_path)
     
     # train the agent
-    agent.train(num_steps, plot_interval)
+    agent.train(num_steps, plot_interval ,continue_training=continue_training)
 
     print("********Replay the best results********")
     memory = agent.memory
@@ -132,6 +146,7 @@ if __name__ == '__main__':
     # saved agent's actor and critic network, memory buffer, and agent
     save = True
     if save == True:
+        num_steps = agent.total_step
         # 创建以时间戳和参数命名的文件夹
         current_time = datetime.now().strftime('%m-%d_%H-%M')
         folder_name = f"{current_time}_steps{num_steps}_corners-{pvtGraph.num_corners}_reward-{best_reward:.2f}"
@@ -167,3 +182,5 @@ if __name__ == '__main__':
             pickle.dump(agent, agent_file)
             
         print(f"All results have been saved in: {save_dir}")
+
+
