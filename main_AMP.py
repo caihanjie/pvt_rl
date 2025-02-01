@@ -44,13 +44,13 @@ if __name__ == '__main__':
     buffer_path = './saved_memories/memory_GraphAMPNMCF_2025-01-31_noise=uniform_reward=-3.61_ActorCriticPVTGAT.pkl'  
     THREAD_NUM = 2
     sample_num = 2
-    num_steps = 2
+    num_steps = 3
     memory_size = 5
     batch_size = 1
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
-    initial_random_steps = 2
+    initial_random_steps = 1
     noise_type = 'uniform' 
 
     """ Run intial op experiment """
