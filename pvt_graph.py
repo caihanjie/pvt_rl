@@ -199,10 +199,11 @@ set num_threads=8"""
         new_performance: 新的性能指标列表 [phase_margin, dcgain, PSRP, ...]
         new_reward: 新的reward值
         """
-        current_reward = self.node_features[corner_idx, 17]
+        current_reward = self.node_features[corner_idx, 21]
         # 只在新reward更好时更新性能和reward
         if new_reward > current_reward:
-            self.node_features[corner_idx, 7:21] = new_performance  # 更新性能指标
+            performance_array = np.array(list(new_performance.values()), dtype=np.float32)
+            self.node_features[corner_idx, 7:21] = performance_array  # 更新性能指标
             self.node_features[corner_idx, 21] = new_reward        # 更新reward
 
     def update_performance_and_reward_r(self, corner_idx, info_dict, reward):
@@ -213,8 +214,8 @@ set num_threads=8"""
         reward: 新的reward值
         """
         # 从info字典中提取性能指标列表
-        performance = list(info_dict.values())
-        self.node_features[corner_idx, 7:21] = performance  # 更新性能指标
+        performance_array = np.array(list(info_dict.values()), dtype=np.float32)
+        self.node_features[corner_idx, 7:21] = performance_array  # 更新性能指标
         self.node_features[corner_idx, 21] = reward        # 更新reward
 
     def get_corner_name(self, idx):
