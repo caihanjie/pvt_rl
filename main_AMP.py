@@ -39,7 +39,7 @@ if __name__ == '__main__':
     CktGraph = GraphAMPNMCF
     GNN = ActorCriticPVTGAT # you can select other GNN
 
-    # parameters
+# parameters
     continue_training = True  # 是否加载已保存的agent
     laststeps = 2000
     old=True
@@ -57,6 +57,7 @@ if __name__ == '__main__':
     initial_random_steps = 0
     batch_size = 128
 
+    check_interval = 4
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
@@ -116,7 +117,7 @@ if __name__ == '__main__':
         agent.load_replay_buffer(buffer_path)
     
     # train the agent
-    agent.train(num_steps, plot_interval ,continue_training=continue_training)
+    agent.train(num_steps, plot_interval ,check_interval , continue_training=continue_training)
 
     print("********Replay the best results********")
     memory = agent.memory

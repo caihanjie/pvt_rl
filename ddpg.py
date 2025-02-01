@@ -1,5 +1,5 @@
 import numpy as np
-
+from datetime import datetime
 from typing import List, Tuple, Dict
 from copy import deepcopy
 import torch
@@ -466,7 +466,7 @@ class DDPGAgent:
         
         return total_actor_loss.data, total_critic_loss.data
 
-    def train(self, num_steps: int, plotting_interval: int = 50, continue_training: bool = False):
+    def train(self, num_steps: int, plotting_interval: int = 50,check_point_interval: int=500, continue_training: bool = False):
         """Train the agent."""
         self.is_test = False      
 
@@ -637,6 +637,9 @@ class DDPGAgent:
                     self.critic_losses,
                 )
                 self.plot_corner_rewards()
+
+            if self.total_step % check_point_interval == 0:
+                self.save_check_point()
             
 
         print(f"\nTraining completed:")
@@ -867,3 +870,71 @@ class DDPGAgent:
              
         print("Agent加载完成，继续训练...\n")
         return saved_agent
+    
+
+    def save_check_point(self):
+        print("********Replay the best results********")
+        memory = self.memory
+        # 获取所有角点的最佳结果
+        best_reward = float('-inf')
+        best_action = None
+        best_corner = None
+
+
+        # 遍历所有角点buffer找到最佳结果
+        for corner_idx, buffer in memory.corner_buffers.items():
+            rewards = buffer['reward'][:buffer['size']]
+            if len(rewards) > 0:
+                max_reward = np.max(rewards)
+                if max_reward > best_reward:
+                    best_reward = max_reward
+                    idx = np.argmax(rewards)
+                    best_action = buffer['action'][idx]
+                    best_corner = corner_idx
+
+        if best_action is not None:
+            results_dict, flag, terminated, truncated, info = self.env.step(
+                (best_action, np.arange(self.actor.num_PVT), True)
+            )
+
+
+        PWD = os.getcwd()
+        num_steps = self.total_step
+        num_corners = self.actor.num_PVT
+
+        # 创建以时间戳和参数命名的文件夹
+        current_time = datetime.now().strftime('%m-%d_%H-%M')
+        folder_name = f"check_point_{current_time}_steps{num_steps}_corners-{num_corners}_reward-{best_reward:.2f}"
+
+        save_dir = os.path.join(PWD, 'saved_results', folder_name)
+        
+        # 创建保存目录
+        os.makedirs(save_dir, exist_ok=True)
+
+        results_file_name = f"opt_result_{current_time}_steps{num_steps}_corners-{num_corners}_reward-{best_reward:.2f}"
+        results_path = os.path.join(save_dir, results_file_name)
+        with open(results_path, 'w') as f:
+            f.writelines(self.env.unwrapped.get_saved_results)  
+
+        # 保存模型权重
+        model_weight_actor = self.actor.state_dict()
+        save_name_actor = f"Actor_weight_{current_time}_steps{num_steps}_corners-{num_corners}_reward-{best_reward:.2f}.pth"
+        
+        model_weight_critic = self.critic.state_dict()
+        save_name_critic = f"Critic_weight_{current_time}_steps{num_steps}_corners-{num_corners}_reward-{best_reward:.2f}.pth"
+        
+        torch.save(model_weight_actor, os.path.join(save_dir, save_name_actor))
+        torch.save(model_weight_critic, os.path.join(save_dir, save_name_critic))
+        print("Actor and Critic weights have been saved!")
+
+        # 保存 memory
+        memory_path = os.path.join(save_dir, f'memory_{current_time}_steps{num_steps}_corners-{num_corners}_reward-{best_reward:.2f}.pkl')
+        with open(memory_path, 'wb') as memory_file:
+            pickle.dump(memory, memory_file)
+
+        # 保存 agent
+        agent_path = os.path.join(save_dir, f'DDPGAgent_{current_time}_steps{num_steps}_corners-{num_corners}_reward-{best_reward:.2f}.pkl')
+        with open(agent_path, 'wb') as agent_file:
+            pickle.dump(self, agent_file)
+            
+        print(f"checkpoint have been saved in: {save_dir}")
