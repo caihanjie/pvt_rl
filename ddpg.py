@@ -219,9 +219,6 @@ class DDPGAgent:
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
 
-                # 如果文件夹不存在，则创建
-        if not os.path.exists(self.save_rewards_dir):
-            os.makedirs(self.save_rewards_dir)
 
         # 添加PVT相关属性
         self.pvt_corners = {}  # 记录每个角点的性能

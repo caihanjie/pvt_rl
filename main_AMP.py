@@ -40,17 +40,17 @@ if __name__ == '__main__':
     GNN = ActorCriticPVTGAT # you can select other GNN
 
     # parameters
-    load_buffer = True
+    load_buffer = False
     buffer_path = './saved_memories/memory_GraphAMPNMCF_2025-01-31_noise=uniform_reward=-3.61_ActorCriticPVTGAT.pkl'  
     THREAD_NUM = 2
-    sample_num = 2
-    num_steps = 4
-    memory_size = 5
-    batch_size = 1
+    sample_num = 8
+    num_steps = 2000
+    memory_size = 2010
+    batch_size = 128
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
-    initial_random_steps = 2
+    initial_random_steps = 150
     noise_type = 'uniform' 
 
     """ Run intial op experiment """
@@ -131,24 +131,38 @@ if __name__ == '__main__':
     # saved agent's actor and critic network, memory buffer, and agent
     save = True
     if save == True:
-        os.makedirs('./saved_weights', exist_ok=True)
-        os.makedirs('./saved_memories', exist_ok=True)     
-        os.makedirs('./saved_agents', exist_ok=True)        
+        # 创建以时间戳和参数命名的文件夹
+        current_time = datetime.now().strftime('%m-%d_%H-%M')
+        folder_name = f"{current_time}_steps{num_steps}_corners-{pvtGraph.num_corners}_reward-{best_reward:.2f}"
+        save_dir = os.path.join(PWD, 'saved_results', folder_name)
+        
+        # 创建保存目录
+        os.makedirs(save_dir, exist_ok=True)
 
+        results_file_name = f"opt_result_{current_time}_steps{num_steps}_corners-{pvtGraph.num_corners}_reward-{best_reward:.2f}"
+        results_path = os.path.join(save_dir, results_file_name)
+        with open(results_path, 'w') as f:
+            f.writelines(agent.env.unwrapped.get_saved_results)  
+
+        # 保存模型权重
         model_weight_actor = agent.actor.state_dict()
-        save_name_actor = f"Actor_{CktGraph().__class__.__name__}_{date}_noise={noise_type}_reward={best_reward:.2f}_{GNN().__class__.__name__}.pth"
+        save_name_actor = f"Actor_weight_{current_time}_steps{num_steps}_corners-{pvtGraph.num_corners}_reward-{best_reward:.2f}.pth"
         
         model_weight_critic = agent.critic.state_dict()
-        save_name_critic = f"Critic_{CktGraph().__class__.__name__}_{date}_noise={noise_type}_reward={best_reward:.2f}_{GNN().__class__.__name__}.pth"
+        save_name_critic = f"Critic_weight_{current_time}_steps{num_steps}_corners-{pvtGraph.num_corners}_reward-{best_reward:.2f}.pth"
         
-        torch.save(model_weight_actor, PWD + "/saved_weights/" + save_name_actor)
-        torch.save(model_weight_critic, PWD + "/saved_weights/" + save_name_critic)
+        torch.save(model_weight_actor, os.path.join(save_dir, save_name_actor))
+        torch.save(model_weight_critic, os.path.join(save_dir, save_name_critic))
         print("Actor and Critic weights have been saved!")
 
-        # save memory
-        with open(f'./saved_memories/memory_{CktGraph().__class__.__name__}_{date}_noise={noise_type}_reward={best_reward:.2f}_{GNN().__class__.__name__}.pkl', 'wb') as memory_file:
+        # 保存 memory
+        memory_path = os.path.join(save_dir, f'memory_{current_time}_steps{num_steps}_corners-{pvtGraph.num_corners}_reward-{best_reward:.2f}.pkl')
+        with open(memory_path, 'wb') as memory_file:
             pickle.dump(memory, memory_file)
 
-        # save agent
-        with open(f'./saved_agents/DDPGAgent_{CktGraph().__class__.__name__}_{date}_noise={noise_type}_reward={best_reward:.2f}_{GNN().__class__.__name__}.pkl', 'wb') as agent_file:
+        # 保存 agent
+        agent_path = os.path.join(save_dir, f'DDPGAgent_{current_time}_steps{num_steps}_corners-{pvtGraph.num_corners}_reward-{best_reward:.2f}.pkl')
+        with open(agent_path, 'wb') as agent_file:
             pickle.dump(agent, agent_file)
+            
+        print(f"All results have been saved in: {save_dir}")
