@@ -46,6 +46,10 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         os.environ['OMP_THREAD_LIMIT'] = str(THREAD_NUM)
         os.environ['OMP_DYNAMIC'] = 'FALSE'
         # os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
+    @property
+    def get_saved_results(self):
+        return self.saved_results  # 提供getter方法
         
     def _initialize_simulation(self):
         self.W_M0, self.L_M0, self.M_M0, \
@@ -922,18 +926,8 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         print(f'Time consumed: {end_time - start_time:.2f} seconds')
 
         if save_results:
-            # 创建results目录
-            os.makedirs('./saved_results', exist_ok=True)
-            
-            # 生成文件名，包含时间、最佳reward和角点数量
-            current_time = datetime.now().strftime('%m%d_%H%M')
-            filename = f'./saved_results/results_reward_{best_reward:.4f}_corners_{len(corner_indices)}_{current_time}.txt'
-            
-            # 写入文件
-            with open(filename, 'w') as f:
-                f.writelines(output_text)
-                f.write(f'\nTime consumed: {end_time - start_time:.2f} seconds\n')
-            print(f"Results have been saved to {filename}")
+            # 将需要保存的内容存储到类变量中，后续由主函数调用写入保存文件夹
+            self.saved_results = output_text
 
         return simulation_results, True
 
