@@ -43,14 +43,15 @@ if __name__ == '__main__':
     load_buffer = False
     buffer_path = './saved_memories/memory_GraphAMPNMCF_2025-01-31_noise=uniform_reward=-3.61_ActorCriticPVTGAT.pkl'  
     THREAD_NUM = 2
+    plot_interval = 1
     sample_num = 2
-    num_steps = 3
+    num_steps = 4
     memory_size = 5
     batch_size = 1
     noise_sigma = 2 # noise volume
     noise_sigma_min = 0.1
     noise_sigma_decay = 0.9995 # if 1 means no decay
-    initial_random_steps = 1
+    initial_random_steps = 2
     noise_type = 'uniform' 
 
     """ Run intial op experiment """
@@ -101,7 +102,7 @@ if __name__ == '__main__':
         agent.load_replay_buffer(buffer_path)
     
     # train the agent
-    agent.train(num_steps)
+    agent.train(num_steps, plot_interval)
 
     print("********Replay the best results********")
     memory = agent.memory
