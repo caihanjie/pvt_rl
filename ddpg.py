@@ -176,7 +176,9 @@ class DDPGAgent:
         gamma: float = 0.99,
         tau: float = 5e-3,
         initial_random_steps: int = 1e4,
-        sample_num: int = 3
+        sample_num: int = 3,
+        agent_folder: str = None,
+        old = False
     ):
         super().__init__()
         """Initialize."""
@@ -191,6 +193,7 @@ class DDPGAgent:
         self.tau = tau
         self.initial_random_steps = initial_random_steps
         self.sample_num = sample_num
+        self.old = old
 
         self.episode = 0
         self.device = CktGraph.device
@@ -208,6 +211,7 @@ class DDPGAgent:
             self.critic.parameters(), lr=3e-4, weight_decay=1e-4)
         self.transition = list()
         self.total_step = 0
+        self.agent_folder = agent_folder
 
         self.noise_type = noise_type
         self.is_test = False
@@ -334,12 +338,12 @@ class DDPGAgent:
                 ).detach().cpu().numpy()
                 selected_action = selected_action.flatten()
                 if self.noise_type == 'uniform':
-                    print(""" uniform distribution noise """)
+                    # print(""" uniform distribution noise """)
                     selected_action = np.random.uniform(np.clip(
                         selected_action-self.noise_sigma, -1, 1), np.clip(selected_action+self.noise_sigma, -1, 1))
 
                 if self.noise_type == 'truncnorm':
-                    print(""" truncated normal distribution noise """)
+                    # print(""" truncated normal distribution noise """)
                     selected_action = trunc_normal(selected_action, self.noise_sigma)
                     selected_action = np.clip(selected_action, -1, 1)
                 
@@ -352,7 +356,7 @@ class DDPGAgent:
             ).detach().cpu().numpy()
             selected_action = selected_action.flatten()
 
-        print(f'selected action: {selected_action}')
+        # print(f'selected action: {selected_action}')
         self.transition = [normalized_state, selected_action]
         return selected_action
 
@@ -462,31 +466,66 @@ class DDPGAgent:
         
         return total_actor_loss.data, total_critic_loss.data
 
-    def train(self, num_steps: int, plotting_interval: int = 50):
+    def train(self, num_steps: int, plotting_interval: int = 50, continue_training: bool = False):
         """Train the agent."""
-        self.is_test = False           
-        results_dict= self.env.reset()
+        self.is_test = False      
+
+        if not continue_training:     
+            results_dict= self.env.reset()
         
-        # 更新PVT图
-        for corner_idx, result in results_dict.items():
-            self.actor.pvt_graph.update_performance_and_reward_r(
-                corner_idx,
-                result['info'],
-                result['reward']
-            )
+            # 更新PVT图
+            for corner_idx, result in results_dict.items():
+                self.actor.pvt_graph.update_performance_and_reward_r(
+                    corner_idx,
+                    result['info'],
+                    result['reward']
+                )
+                
+            pvt_graph_state = self.actor.pvt_graph.get_graph_features()
+        
+            self.actor_losses = []              
+            self.critic_losses = []
+            self.scores = []
+            self.score = 0
             
-        pvt_graph_state = self.actor.pvt_graph.get_graph_features()
-        
-        actor_losses = []              
-        critic_losses = []
-        scores = []
-        score = 0
+            # 初始化reward历史记录
+            for corner_name in self.actor.pvt_graph.pvt_corners.keys():
+                self.corner_rewards_history[corner_name] = []
 
-        # 初始化reward历史记录
-        for corner_name in self.actor.pvt_graph.pvt_corners.keys():
-            self.corner_rewards_history[corner_name] = []
+        else:
+            saved_agent = self.load_agent(self.agent_folder)
+            self.actor.pvt_graph = saved_agent.actor.pvt_graph
+            # self.env = saved_agent.env
+            self.env.reset()
+            pvt_graph_state = self.actor.pvt_graph.get_graph_features()
+            print("PVT图状态已恢复")
+            self.total_step = saved_agent.total_step
+            self.episode = saved_agent.episode
+            self.noise_sigma = saved_agent.noise_sigma
+            self.initial_random_steps = 0
+            print(f"Traning from steps: {self.total_step}")
+            self.corner_rewards_history = saved_agent.corner_rewards_history
+            print(f'*** The progress of the PVT graph ***')
+            # 打印PVT图进度
+            print("\nHistory PVT Graph Rewards:")
+            for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                print(f"{corner_name}: reward = {reward:.4f}")
+            print()
 
-        for self.total_step in range(1, num_steps + 1):
+            if not self.old:
+                self.actor_losses = saved_agent.actor_losses
+                self.critic_losses = saved_agent.critic_losses
+                self.scores = saved_agent.scores
+                self.score = saved_agent.score
+            else:
+                self.actor_losses = []
+                self.critic_losses = []
+                self.scores = []
+                self.score = 0
+
+        for step in range(1, num_steps + 1):
+            self.total_step += 1
             print(f'*** Step: {self.total_step} | Episode: {self.episode} ***')
             
             # 使用PVT图状态选择动作
@@ -546,7 +585,7 @@ class DDPGAgent:
             else:
                 terminated = False
 
-            score += total_reward
+            self.score += total_reward
 
             # 存储转换,包括每个角点的信息
             if not self.is_test:
@@ -572,8 +611,8 @@ class DDPGAgent:
                 
                 pvt_graph_state = self.actor.pvt_graph.get_graph_features()
                 self.episode += 1
-                scores.append(score)
-                score = 0
+                self.scores.append(self.score)
+                self.score = 0
 
             print(f'*** The progress of the PVT graph ***')
             # 打印PVT图进度
@@ -585,22 +624,23 @@ class DDPGAgent:
 
             # 如果满足训练条件则更新模型
             if  self.total_step > self.initial_random_steps:
-                actor_loss, critic_loss = self.update_model()
-                actor_losses.append(actor_loss)
-                critic_losses.append(critic_loss)
+                self.actor_loss, self.critic_loss = self.update_model()
+                self.actor_losses.append(self.actor_loss)
+                self.critic_losses.append(self.critic_loss)
             
             # 绘图
             if self.total_step % plotting_interval == 0:
                 self._plot(
                     self.total_step,
-                    scores,
-                    actor_losses,
-                    critic_losses,
+                    self.scores,
+                    self.actor_losses,
+                    self.critic_losses,
                 )
-            self.plot_corner_rewards()
+                self.plot_corner_rewards()
+            
 
         print(f"\nTraining completed:")
-        print(f"Total steps: {num_steps}")
+        print(f"Total steps: {self.total_step}")
         print(f"Skipped steps: {self.skipped_steps}")
         
         self.env.close()
@@ -757,7 +797,8 @@ class DDPGAgent:
         # 打印保存的buffer的角点信息    
         print("\nSaved buffer corners:")
         for corner_idx, saved_corner_buffer_idx in enumerate(saved_buffer.corner_buffers.keys()):
-            print(f"Index {corner_idx}: {saved_corner_buffer_idx} : {saved_buffer.corner_buffers[saved_corner_buffer_idx]['name']}")
+            # print(f"Index {corner_idx}: {saved_corner_buffer_idx} : {saved_buffer.corner_buffers[saved_corner_buffer_idx]['name']}")
+            print(f"Index {corner_idx}: {saved_corner_buffer_idx} ")
             
         # 转移数据到新的buffer
         for corner_idx, saved_corner_buffer in saved_buffer.corner_buffers.items():
@@ -779,7 +820,50 @@ class DDPGAgent:
             buffer['ptr'] = saved_corner_buffer['ptr']
             buffer['size'] = saved_corner_buffer['size']
             
-            print(f"Loaded data for corner {corner_idx} ({saved_corner_buffer['name']}) to ({buffer['name']})")
+            # print(f"Loaded data for corner {corner_idx} ({saved_corner_buffer['name']}) to ({buffer['name']})")
+            print(f"Loaded data for corner {corner_idx}  to  :({buffer['name']})")
             print(f"  Size: {buffer['size']}")
             
         print(f"\nSuccessfully loaded replay buffer with {len(saved_buffer.corner_buffers)} corners")
+
+    def load_agent(self,agent_folder):
+        # 加载actor权重
+        actor_weights = [f for f in os.listdir(agent_folder) if f.startswith('Actor')]
+        if actor_weights:
+            actor_path = os.path.join(agent_folder, actor_weights[0])
+            actor_state_dict = torch.load(actor_path)
+
+        # 加载critic权重    
+        critic_weights = [f for f in os.listdir(agent_folder) if f.startswith('Critic')]
+        if critic_weights:
+            critic_path = os.path.join(agent_folder, critic_weights[0])
+            critic_state_dict = torch.load(critic_path)
+
+        # 加载memory
+        memory_files = [f for f in os.listdir(agent_folder) if f.startswith('memory')]
+        if memory_files:
+            memory_path = os.path.join(agent_folder, memory_files[0])
+
+        # 加载完整agent(可选)
+        agent_files = [f for f in os.listdir(agent_folder) if f.startswith('DDPGAgent')]
+        if agent_files:
+            agent_path = os.path.join(agent_folder, agent_files[0])
+            with open(agent_path, 'rb') as f:
+                saved_agent = pickle.load(f)
+
+        # 加载模型权重
+        if 'actor_state_dict' in locals():
+            self.actor.load_state_dict(actor_state_dict)
+            print("Actor权重已加载")
+            
+        if 'critic_state_dict' in locals():
+            self.critic.load_state_dict(critic_state_dict)
+            print("Critic权重已加载")
+            
+        # 加载memory
+        if 'memory_path' in locals():
+            self.load_replay_buffer(memory_path)
+            print("Memory已加载")
+             
+        print("Agent加载完成，继续训练...\n")
+        return saved_agent

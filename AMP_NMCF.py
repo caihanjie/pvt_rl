@@ -26,7 +26,7 @@ CktGraph = GraphAMPNMCF
             
 class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
 
-    def __init__(self, THREAD_NUM):
+    def __init__(self, THREAD_NUM, print_interval):
         gym.Env.__init__(self)
         CktGraph.__init__(self)
         DeviceParams.__init__(self, self.ckt_hierarchy)
@@ -39,7 +39,9 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
 
         self.pvt_graph = PVTGraph()  # 添加PVT图实例
         self.THREAD_NUM = THREAD_NUM
-        
+        self.print_interval = print_interval
+        self.total_step = 0 
+
         # 设置OpenMP环境变量
         THREAD_NUM = self.THREAD_NUM
         os.environ['OMP_NUM_THREADS'] = str(THREAD_NUM) 
@@ -172,7 +174,7 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         ).action(action)
         action = action.astype(object)
         
-        print(f"action: {action}")
+        # print(f"action: {action}")
         
         self.W_M0, self.L_M0, self.M_M0,\
         self.W_M8, self.L_M8, self.M_M8,\
@@ -912,7 +914,9 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
                     floatfmt=".8f"
                 )
                 
-                print(table)  # 仍然打印到控制台
+                if self.total_step % self.print_interval == 0:
+                    print(table)  # 仍然打印到控制台
+
                 if save_results:
                     output_text.append(f"\nCorner: {corner_name}\n")
                     output_text.append(table + "\n")
@@ -928,6 +932,8 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         if save_results:
             # 将需要保存的内容存储到类变量中，后续由主函数调用写入保存文件夹
             self.saved_results = output_text
+        
+        self.total_step += 1
 
         return simulation_results, True
 
