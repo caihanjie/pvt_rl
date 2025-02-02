@@ -42,24 +42,24 @@ if __name__ == '__main__':
 # parameters
     continue_training = False  # 是否加载已保存的agent
     laststeps = 0
-    old=True
+    old = False
     agent_folder = './saved_results/saved_0.81'  # 已保存agent的文件夹路径
 
-    load_buffer = False
-    load_buffer_size = 0
-    buffer_path = './saved_memories/memory_GraphAMPNMCF_2025-01-31_noise=uniform_reward=-3.61_ActorCriticPVTGAT.pkl'  
+    load_buffer = True
+    load_buffer_size = 1200
+    buffer_path = './saved_results/02-01_23-44_steps18_corners-5_reward--3.39/memory_02-01_23-44_steps18_corners-5_reward--3.39.pkl'  
 
-    plot_interval = 1
-    print_interval = 1
+    plot_interval = 10
+    print_interval = 10
 
-    sample_num = 2
-    num_steps = 9
-    initial_random_steps = 2
-    batch_size = 1
+    sample_num = 8
+    num_steps = 5000
+    initial_random_steps = 0
+    batch_size = 128
     
-    check_interval = 10
-    noise_sigma = 2 # noise volume
-    noise_sigma_min = 0.1
+    check_interval = 100
+    noise_sigma = 0.05 # noise volume
+    noise_sigma_min = 0.05
     noise_sigma_decay = 0.9995 # if 1 means no decay
     noise_type = 'uniform' 
     THREAD_NUM = 2
