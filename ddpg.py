@@ -10,6 +10,7 @@ import torch.optim as optim
 import pickle
 
 from utils import trunc_normal
+import time
 
 from IPython.display import clear_output
 import matplotlib
@@ -384,6 +385,9 @@ class DDPGAgent:
     #     return next_state, rewards, terminated, truncated, infos
 
     def update_model(self) -> torch.Tensor:
+        
+        # 开始计时
+        start_time = time.time()
         print("*** Update the model by gradient descent. ***")
         
         # 获取当前选择的角点
@@ -397,6 +401,7 @@ class DDPGAgent:
                 corner_batches[corner_idx] = batch
         
         if not corner_batches:  # 如果没有足够的数据
+            print("*** no batch abort ***")
             return None, None
             
         # 计算critic loss
@@ -463,7 +468,11 @@ class DDPGAgent:
         total_actor_loss.backward()
         self.actor_optimizer.step()
         # self._target_soft_update()
-        
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Total time taken for update: {elapsed_time:.4f} seconds")
+                
         return total_actor_loss.data, total_critic_loss.data
 
     def train(self, num_steps: int, plotting_interval: int = 50,check_point_interval: int=500, continue_training: bool = False):
@@ -471,6 +480,11 @@ class DDPGAgent:
         self.is_test = False      
 
         if not continue_training:     
+
+            # 初始化reward历史记录
+            for corner_name in self.actor.pvt_graph.pvt_corners.keys():
+                self.corner_rewards_history[corner_name] = []
+
             results_dict= self.env.reset()
         
             # 更新PVT图
@@ -488,9 +502,22 @@ class DDPGAgent:
             self.scores = []
             self.score = 0
             
-            # 初始化reward历史记录
-            for corner_name in self.actor.pvt_graph.pvt_corners.keys():
-                self.corner_rewards_history[corner_name] = []
+
+                # 更新reward历史记录
+            for idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                if idx in results_dict:  # 如果这个角点在当前step被采样
+                    reward = results_dict[idx]['reward']
+                else:  # 如果没有被采样，使用上一次的值
+                    reward = self.corner_rewards_history[corner_name][-1]
+                self.corner_rewards_history[corner_name].append(reward)
+
+            print(f'*** The progress of the PVT graph ***')
+            # 打印PVT图进度
+            print("\nPVT Graph Rewards:")
+            for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                print(f"{corner_name}: reward = {reward:.4f}")
+            print()
 
         else:
             saved_agent = self.load_agent(self.agent_folder)
@@ -805,8 +832,8 @@ class DDPGAgent:
         # 打印保存的buffer的角点信息    
         print("\nSaved buffer corners:")
         for corner_idx, saved_corner_buffer_idx in enumerate(saved_buffer.corner_buffers.keys()):
-            # print(f"Index {corner_idx}: {saved_corner_buffer_idx} : {saved_buffer.corner_buffers[saved_corner_buffer_idx]['name']}")
-            print(f"Index {corner_idx}: {saved_corner_buffer_idx} ")
+            print(f"Index {corner_idx}: {saved_corner_buffer_idx} : {saved_buffer.corner_buffers[saved_corner_buffer_idx]['name']}")
+            # print(f"Index {corner_idx}: {saved_corner_buffer_idx} ")
             
         # 转移数据到新的buffer
         for corner_idx, saved_corner_buffer in saved_buffer.corner_buffers.items():
@@ -828,8 +855,8 @@ class DDPGAgent:
             buffer['ptr'] = saved_corner_buffer['ptr']
             buffer['size'] = saved_corner_buffer['size']
             
-            # print(f"Loaded data for corner {corner_idx} ({saved_corner_buffer['name']}) to ({buffer['name']})")
-            print(f"Loaded data for corner {corner_idx}  to  :({buffer['name']})")
+            print(f"Loaded data for corner {corner_idx} ({saved_corner_buffer['name']}) to ({buffer['name']})")
+            # print(f"Loaded data for corner {corner_idx}  to  :({buffer['name']})")
             print(f"  Size: {buffer['size']}")
             
         print(f"\nSuccessfully loaded replay buffer with {len(saved_buffer.corner_buffers)} corners")

@@ -19,8 +19,8 @@ from torch_geometric.utils import softmax
 
 class ActorCriticPVTGAT:
     class GuidedGATConv(MessagePassing):
-        def __init__(self, in_channels, out_channels, heads=4, concat=True,
-                     dropout=0.2, feature_guidance_weight=0, **kwargs):
+        def __init__(self, in_channels, out_channels, heads, concat=True,
+                     dropout=0, feature_guidance_weight=0, **kwargs):
             super().__init__(node_dim=0, **kwargs)
             
             self.in_channels = in_channels
@@ -75,8 +75,8 @@ class ActorCriticPVTGAT:
             self.attention_weights = alpha.detach().mean(dim=1)
             
             # Dropout
-            if self.training and self.dropout > 0:
-                alpha = F.dropout(alpha, p=self.dropout, training=True)
+            # if self.training and self.dropout > 0:
+            #     alpha = F.dropout(alpha, p=self.dropout, training=True)
 
             return x_j * alpha.view(-1, self.heads, 1)
 
@@ -88,7 +88,7 @@ class ActorCriticPVTGAT:
             return aggr_out
 
     class GATActor(nn.Module):
-        def __init__(self, input_dim, hidden_dims, output_dim, heads=4, dropout=0.2, guidance_weight=1.0):
+        def __init__(self, input_dim, hidden_dims, output_dim, heads=4, dropout=0, guidance_weight=1.0):
             """
             Args:
                 input_dim: 输入特征维度
@@ -126,7 +126,6 @@ class ActorCriticPVTGAT:
             for layer in self.layers:
                 x = layer(x, edge_index)
                 x = F.elu(x)
-                # x = F.dropout(x, p=self.dropout, training=self.training)
             x = self.fc(torch.flatten(x))
             x = torch.tanh(x)    
             return x
@@ -138,7 +137,7 @@ class ActorCriticPVTGAT:
 
 
     class Actor(nn.Module):
-        def __init__(self, CktGraph, PVT_Graph, hidden_dims=[32, 32, 16], heads=4):
+        def __init__(self, CktGraph, PVT_Graph, hidden_dims=[32, 64, 128, 64, 32 ], heads=4):
             super().__init__()
             self.num_node_features = CktGraph.num_node_features
             self.action_dim = CktGraph.action_dim
@@ -156,7 +155,7 @@ class ActorCriticPVTGAT:
                 hidden_dims=hidden_dims,
                 output_dim=self.action_dim,  # 直接输出action_dim维度
                 heads=heads,
-                dropout=0.2,
+                dropout=0,
                 guidance_weight=1.0
             )
             
@@ -234,30 +233,24 @@ class ActorCriticPVTGAT:
     class Critic(torch.nn.Module):
         def __init__(self, CktGraph):
             super().__init__()
-            self.num_node_features = CktGraph.num_node_features 
-            self.action_dim = CktGraph.action_dim              
+            self.num_node_features = CktGraph.num_node_features
+            self.action_dim = CktGraph.action_dim
             self.device = CktGraph.device
             self.edge_index = CktGraph.edge_index
-            self.edge_type = CktGraph.edge_type
             self.num_nodes = CktGraph.num_nodes
-            self.num_relations = CktGraph.num_relations
     
             self.in_channels = self.num_node_features + self.action_dim
             self.out_channels = 1
-            self.conv1 = RGCNConv(self.in_channels, 32, self.num_relations, 
-                                  num_bases=32)
-            self.conv2 = RGCNConv(32, 32, self.num_relations,
-                                  num_bases=32)
-            self.conv3 = RGCNConv(32, 16, self.num_relations,
-                                  num_bases=32)
-            self.conv4 = RGCNConv(16, 16, self.num_relations,
-                                  num_bases=32)
+            self.conv1 = GCNConv(self.in_channels, 32)
+            self.conv2 = GCNConv(32, 64)
+            self.conv3 = GCNConv(64, 128)
+            self.conv4 = GCNConv(128, 64)
+            self.conv5 = GCNConv(64, 32)
             self.lin1 = LazyLinear(self.out_channels)
     
         def forward(self, state, action):
             batch_size = state.shape[0]
             edge_index = self.edge_index
-            edge_type = self.edge_type
             device = self.device
     
             action = action.repeat_interleave(self.num_nodes, 0).reshape(
@@ -267,10 +260,11 @@ class ActorCriticPVTGAT:
             values = torch.tensor(()).to(device)
             for i in range(batch_size):
                 x = data[i]
-                x = F.relu(self.conv1(x, edge_index, edge_type))
-                x = F.relu(self.conv2(x, edge_index, edge_type))
-                x = F.relu(self.conv3(x, edge_index, edge_type))
-                x = F.relu(self.conv4(x, edge_index, edge_type))
+                x = F.relu(self.conv1(x, edge_index))
+                x = F.relu(self.conv2(x, edge_index))
+                x = F.relu(self.conv3(x, edge_index))
+                x = F.relu(self.conv4(x, edge_index))
+                x = F.relu(self.conv5(x, edge_index))
                 x = self.lin1(torch.flatten(x)).reshape(1, -1)
                 values = torch.cat((values, x), axis=0)
     
