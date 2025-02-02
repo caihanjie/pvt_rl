@@ -10,6 +10,7 @@ import torch.optim as optim
 import pickle
 
 from utils import trunc_normal
+import time
 
 from IPython.display import clear_output
 import matplotlib
@@ -384,6 +385,9 @@ class DDPGAgent:
     #     return next_state, rewards, terminated, truncated, infos
 
     def update_model(self) -> torch.Tensor:
+        
+        # 开始计时
+        start_time = time.time()
         print("*** Update the model by gradient descent. ***")
         
         # 获取当前选择的角点
@@ -463,7 +467,11 @@ class DDPGAgent:
         total_actor_loss.backward()
         self.actor_optimizer.step()
         # self._target_soft_update()
-        
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Total time taken for update: {elapsed_time:.4f} seconds")
+                
         return total_actor_loss.data, total_critic_loss.data
 
     def train(self, num_steps: int, plotting_interval: int = 50,check_point_interval: int=500, continue_training: bool = False):
