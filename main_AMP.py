@@ -53,11 +53,11 @@ if __name__ == '__main__':
     print_interval = 1
 
     sample_num = 2
-    num_steps = 8
+    num_steps = 30
     initial_random_steps = 0
     batch_size = 2
     
-    check_interval = 3
+    check_interval = 100
     noise_sigma = 0.05 # noise volume
     noise_sigma_min = 0.05
     noise_sigma_decay = 0.9995 # if 1 means no decay
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     register(
             id = env_id,
             entry_point = 'AMP_NMCF:AMPNMCFEnv',
-            max_episode_steps = 100000,   #!!!no limit of steps
+            max_episode_steps = 5,   #!!!no limit of steps
             kwargs={'THREAD_NUM': THREAD_NUM ,'print_interval':print_interval}
             )
     env = gym.make(env_id)  

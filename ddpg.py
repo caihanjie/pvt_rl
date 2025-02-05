@@ -559,7 +559,7 @@ class DDPGAgent:
         for step in range(1, num_steps + 1):
             self.total_step += 1
             print(f'*** Step: {self.total_step} | Episode: {self.episode} ***')
-            
+
             # 使用PVT图状态选择动作
             action = self.select_action(pvt_graph_state)
             
@@ -569,10 +569,9 @@ class DDPGAgent:
             else:
                 # 在随机探索阶段,使用所有角点
                 corner_indices = np.arange(self.actor.num_PVT)
-                # 创建均匀分布的权重,每个角点权重相等
                 num_corners = len(corner_indices)
                 attention_weights = torch.ones(num_corners, device=self.device) / num_corners  # 每个角点权重为1/总角点数
-            # 在采样的角点上执行动作
+
             results_dict, reward_no, terminated, truncated, info = self.env.step((action, corner_indices))
             
             # 添加错误处理
@@ -581,7 +580,7 @@ class DDPGAgent:
                 self.skipped_steps += 1  # 增加计数
                 continue
                 
-            # 更新PVT图并存储转换
+            # 更新PVT图
             for corner_idx, result in results_dict.items():
                 # 更新PVT图中角点的性能和reward
                 self.actor.update_pvt_performance(
@@ -611,6 +610,14 @@ class DDPGAgent:
                 total_reward += weight * reward
 
             print(f'*** total_reward: {total_reward} ***')
+            print()
+            print(f'*** The progress of the PVT graph ***')
+            # 打印PVT图进度
+            print("\nPVT Graph Rewards:")
+            for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                print(f"{corner_name}: reward = {reward:.4f}")
+            print()
 
             if total_reward > 0:  # 使用最佳角点的reward判断是否终止
                 terminated = True
@@ -633,9 +640,10 @@ class DDPGAgent:
                 
             if terminated or truncated:
                 results_dict = self.env.reset()
+                print(f"*** reset ***")
                 # 更新PVT图
                 for corner_idx, result in results_dict.items():
-                    self.actor.update_pvt_performance(
+                    self.actor.update_pvt_performance_r(
                         corner_idx,
                         result['info'],
                         result['reward']
@@ -645,14 +653,14 @@ class DDPGAgent:
                 self.episode += 1
                 self.scores.append(self.score)
                 self.score = 0
+                print(f'*** The progress of the PVT graph ***')
+                # 打印PVT图进度
+                print("\nPVT Graph Rewards:")
+                for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
+                    reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                    print(f"{corner_name}: reward = {reward:.4f}")
+                print()
 
-            print(f'*** The progress of the PVT graph ***')
-            # 打印PVT图进度
-            print("\nPVT Graph Rewards:")
-            for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
-                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
-                print(f"{corner_name}: reward = {reward:.4f}")
-            print()
 
             # 如果满足训练条件则更新模型
             if  self.total_step > self.initial_random_steps:
