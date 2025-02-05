@@ -87,7 +87,7 @@ if __name__ == '__main__':
     register(
             id = env_id,
             entry_point = 'AMP_NMCF:AMPNMCFEnv',
-            max_episode_steps = 100000,   #!!!no limit of steps
+            max_episode_steps = 50, 
             kwargs={'THREAD_NUM': THREAD_NUM ,'print_interval':print_interval}
             )
     env = gym.make(env_id)  
