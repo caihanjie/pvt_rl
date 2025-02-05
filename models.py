@@ -156,7 +156,7 @@ class ActorCriticPVTGAT:
                 output_dim=self.action_dim,  # 直接输出action_dim维度
                 heads=heads,
                 dropout=0,
-                guidance_weight=1.0
+                guidance_weight=2.0##here
             )
             
             # 当前选中的角点
