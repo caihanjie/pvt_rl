@@ -189,6 +189,8 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
 
         results_dict, flag = self._do_parallel_simulation(action, corner_indices, save_results)
         
+        if results_dict is None:
+            return None, None, False, False , None
         reward = {}
         for corner_idx, result in results_dict.items():
             reward[corner_idx] = result['reward']
