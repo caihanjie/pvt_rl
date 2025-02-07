@@ -565,6 +565,17 @@ class DDPGAgent:
             
             if self.total_step >= self.initial_random_steps:
                 attention_weights, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
+
+                # 计算数组总和
+                total = sum(attention_weights)
+                
+                # 通过除以总和来归一化每个元素
+                normalized = [x/total for x in attention_weights]
+                
+                attention_weights =  normalized
+
+                print(sum(attention_weights))  # 输出: 1.0
+
                 print(f'*** corner_indices: {corner_indices} ***')
                 print(f'*** corner_weights: {attention_weights} ***')
                 
