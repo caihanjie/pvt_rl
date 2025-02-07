@@ -53,10 +53,9 @@ class ActorCriticPVTGAT:
             reward_weights = None
             if self.layer_idx == 0:  # 仅第一层计算reward权重
                 rewards = x[:, -1:]
-                pos_mask = rewards >= 0
-                reward_weights = torch.where(pos_mask, 1.0 / (rewards + 1), torch.abs(rewards))
+                reward_weights = 1.0 / (torch.abs(rewards)**3 + 1e-6)
                 reward_weights = F.normalize(reward_weights, p=1, dim=0)
-        
+
 
             x = self.lin(x).view(-1, self.heads, self.out_channels)
             return self.propagate(edge_index, x=x, reward_weights=reward_weights)
@@ -71,7 +70,7 @@ class ActorCriticPVTGAT:
                 if reward_weights_j.dim() == 1:
                     reward_weights_j = reward_weights_j.unsqueeze(-1)
             
-                guided_alpha = alpha + self.feature_guidance_weight * torch.log(reward_weights_j)
+                guided_alpha = alpha + self.feature_guidance_weight * reward_weights_j
 
                 alpha = softmax(guided_alpha, edge_index_i, num_nodes=size_i)
                 self.attention_weights = alpha.detach().mean(dim=1)
@@ -165,7 +164,7 @@ class ActorCriticPVTGAT:
                 output_dim=self.action_dim,  # 直接输出action_dim维度
                 heads=heads,
                 dropout=0,
-                guidance_weight=3.0##here
+                guidance_weight=1.5##here
             )
             
             # 当前选中的角点
