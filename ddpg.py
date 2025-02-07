@@ -566,6 +566,8 @@ class DDPGAgent:
             if self.total_step >= self.initial_random_steps:
                 attention_weights, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
                 print(f'*** corner_indices: {corner_indices} ***')
+                print(f'*** corner_weights: {attention_weights} ***')
+                
             else:
                 # 在随机探索阶段,使用所有角点
                 corner_indices = np.arange(self.actor.num_PVT)
@@ -923,7 +925,7 @@ class DDPGAgent:
 
         # 遍历所有角点buffer找到最佳结果
         for corner_idx, buffer in memory.corner_buffers.items():
-            rewards = buffer['reward'][:buffer['size']]
+            rewards = buffer['total_reward'][:buffer['size']]
             if len(rewards) > 0:
                 max_reward = np.max(rewards)
                 if max_reward > best_reward:

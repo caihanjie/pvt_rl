@@ -19,7 +19,7 @@ from torch_geometric.utils import softmax
 
 class ActorCriticPVTGAT:
     class GuidedGATConv(MessagePassing):
-        def __init__(self, in_channels, out_channels, heads, concat=True,
+        def __init__(self, in_channels, out_channels, heads, layer_idx ,concat=True,
                      dropout=0, feature_guidance_weight=0, **kwargs):
             super().__init__(node_dim=0, **kwargs)
             
@@ -28,6 +28,7 @@ class ActorCriticPVTGAT:
             self.heads = heads
             self.concat = concat
             self.dropout = dropout
+            self.layer_idx = layer_idx
             self.feature_guidance_weight = feature_guidance_weight
             self.output_dim = heads * out_channels if concat else out_channels
 
@@ -49,10 +50,13 @@ class ActorCriticPVTGAT:
             if not isinstance(edge_index, torch.Tensor):
                 edge_index = torch.tensor(edge_index, device=x.device)
             
-            # 计算reward引导权重
-            rewards = x[:, -1:]
-            reward_weights = 1.0 / (torch.abs(rewards) + 1e-6)
-            reward_weights = F.normalize(reward_weights, p=1, dim=0)
+            reward_weights = None
+            if self.layer_idx == 0:  # 仅第一层计算reward权重
+                rewards = x[:, -1:]
+                pos_mask = rewards >= 0
+                reward_weights = torch.where(pos_mask, 1.0 / (rewards + 1), torch.abs(rewards))
+                reward_weights = F.normalize(reward_weights, p=1, dim=0)
+        
 
             x = self.lin(x).view(-1, self.heads, self.out_channels)
             return self.propagate(edge_index, x=x, reward_weights=reward_weights)
@@ -62,17 +66,21 @@ class ActorCriticPVTGAT:
             alpha = (x_i * self.att_l).sum(-1) + (x_j * self.att_r).sum(-1)
             alpha = F.leaky_relu(alpha)
             
-            # 确保reward_weights_j维度正确
-            if reward_weights_j.dim() == 1:
-                reward_weights_j = reward_weights_j.unsqueeze(-1)
+            if reward_weights_j is not None:
+                # 确保reward_weights_j维度正确
+                if reward_weights_j.dim() == 1:
+                    reward_weights_j = reward_weights_j.unsqueeze(-1)
             
-            guided_alpha = alpha + self.feature_guidance_weight * torch.log(reward_weights_j)
+                guided_alpha = alpha + self.feature_guidance_weight * torch.log(reward_weights_j)
+
+                alpha = softmax(guided_alpha, edge_index_i, num_nodes=size_i)
+                self.attention_weights = alpha.detach().mean(dim=1)
+            else:
+                guided_alpha = alpha
+
+                alpha = softmax(guided_alpha, edge_index_i, num_nodes=size_i)
             
-            # 修复: 不需要处理size_i参数，直接传入即可
-            alpha = softmax(guided_alpha, edge_index_i, num_nodes=size_i)
-            
-            # 保存注意力权重
-            self.attention_weights = alpha.detach().mean(dim=1)
+
             
             # Dropout
             # if self.training and self.dropout > 0:
@@ -110,6 +118,7 @@ class ActorCriticPVTGAT:
                         dims[i] * (heads if i > 0 else 1),
                         dims[i+1],
                         heads=heads,
+                        layer_idx=i,
                         concat=(i < len(dims)-2),  # 最后一层不concat
                         dropout=dropout,
                         feature_guidance_weight=guidance_weight
@@ -133,7 +142,7 @@ class ActorCriticPVTGAT:
         def get_attention_weights(self):
             """获取注意力权重"""
             # 只返回最后一层的注意力权重
-            return self.layers[-1].attention_weights
+            return self.layers[0].attention_weights
 
 
     class Actor(nn.Module):
@@ -156,7 +165,7 @@ class ActorCriticPVTGAT:
                 output_dim=self.action_dim,  # 直接输出action_dim维度
                 heads=heads,
                 dropout=0,
-                guidance_weight=2.0##here
+                guidance_weight=3.0##here
             )
             
             # 当前选中的角点

@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
     # 遍历所有角点buffer找到最佳结果
     for corner_idx, buffer in memory.corner_buffers.items():
-        rewards = buffer['reward'][:buffer['size']]
+        rewards = buffer['total_reward'][:buffer['size']]
         if len(rewards) > 0:
             max_reward = np.max(rewards)
             if max_reward > best_reward:
