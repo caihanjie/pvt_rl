@@ -214,13 +214,13 @@ class ActorCriticPVTGAT:
             
             return top_values, indices.cpu().numpy()  # 返回top_values和indices
         
-        def update_pvt_performance(self, corner_idx, performance, reward):
+        def update_pvt_performance(self, corner_idx,  reward):
             """更新PVT图中角点的性能和reward"""
-            self.pvt_graph.update_performance_and_reward(corner_idx, performance, reward)
+            self.pvt_graph.update_performance_and_reward(corner_idx,  reward)
 
-        def update_pvt_performance_r(self, corner_idx, performance, reward):
+        def update_pvt_performance_r(self, corner_idx,  reward):
             """强制更新PVT图中角点的性能和reward"""
-            self.pvt_graph.update_performance_and_reward_r(corner_idx, performance, reward)
+            self.pvt_graph.update_performance_and_reward_r(corner_idx, reward)
             
         def get_current_corner(self):
             """获取当前选中的角点"""
@@ -259,6 +259,9 @@ class ActorCriticPVTGAT:
             self.mlp7 = Linear(8, self.out_channels)
     
         def forward(self, pvt_corner, action):
+            if len(action.shape) == 1:  # 如果不是batch数据
+                action = action.reshape(1, action.shape[0])
+                pvt_corner = pvt_corner.reshape(1, pvt_corner.shape[0])
             batch_size = action.shape[0]
             device = self.device
 
@@ -274,7 +277,7 @@ class ActorCriticPVTGAT:
                 x = F.relu(self.mlp4(x))
                 x = F.relu(self.mlp5(x))
                 x = F.relu(self.mlp6(x))
-                x = F.relu(self.mlp6(x))
+                x = F.relu(self.mlp7(x))
                 values = torch.cat((values, x), axis=0)
     
             return values

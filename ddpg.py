@@ -92,9 +92,9 @@ class ReplayBuffer:
             ptr = buffer['ptr']
             
             # 存储角点特定数据
-            buffer['obs'][ptr] = result['observation']
-            buffer['next_obs'][ptr] = result['observation']  # 需要更新为真实的next_obs
-            buffer['info'][ptr] = result['info']
+            # buffer['obs'][ptr] = result['observation']
+            # buffer['next_obs'][ptr] = result['observation']  # 需要更新为真实的next_obs
+            # # buffer['info'][ptr] = result['info']
             buffer['reward'][ptr] = result['reward']
             
             # 存储共享数据
@@ -281,44 +281,43 @@ class DDPGAgent:
         state[:, 6] = (state[:, 6] - self.pvt_norm_params['vdd']['min']) / (self.pvt_norm_params['vdd']['max'] - self.pvt_norm_params['vdd']['min'])
         state[:, 5] = (state[:, 5] - self.pvt_norm_params['temp']['min']) / (self.pvt_norm_params['temp']['max'] - self.pvt_norm_params['temp']['min'])
         
-        # state[:, 2] = state[:, 2] / self.pvt_norm_params['process']['max']
-        
+
         # 性能指标归一化 - 分类处理
         # 1. 相位裕度(phase margin): 通常在0-180度之间,60度为良好值
-        state[:, 7] = torch.sigmoid((state[:, 7] - 45) / 15)  # 以60度为中心,使用sigmoid函数归一化
+        # state[:, 7] = torch.sigmoid((state[:, 7] - 45) / 15)  # 以60度为中心,使用sigmoid函数归一化
         
-        # 2. 增益相关指标(dcgain, PSRP, PSRN, cmrrdc): 使用对数归一化
-        state[:, 8] = torch.sigmoid((state[:, 8] - 120) / 10)  # dcgain
-        state[:, 9] = torch.sigmoid((state[:, 9] + 80) / 10)  # PSRP 
-        state[:, 10] = torch.sigmoid((state[:, 10] + 80) / 10)  # PSRN
-        state[:, 11] = torch.sigmoid((state[:, 11] + 80) / 10)  # cmrrdc
+        # # 2. 增益相关指标(dcgain, PSRP, PSRN, cmrrdc): 使用对数归一化
+        # state[:, 8] = torch.sigmoid((state[:, 8] - 120) / 10)  # dcgain
+        # state[:, 9] = torch.sigmoid((state[:, 9] + 80) / 10)  # PSRP 
+        # state[:, 10] = torch.sigmoid((state[:, 10] + 80) / 10)  # PSRN
+        # state[:, 11] = torch.sigmoid((state[:, 11] + 80) / 10)  # cmrrdc
         
-        # 3. 时间相关指标(TC, settlingTime): 使用对数归一化
-        state[:, 12] = torch.sigmoid((-torch.log10(state[:, 12]) - 5) / 0.5)  # TC
-        state[:, 13] = torch.sigmoid((-torch.log10(state[:, 13]) - 6) / 0.5)  # settlingTime
+        # # 3. 时间相关指标(TC, settlingTime): 使用对数归一化
+        # state[:, 12] = torch.sigmoid((-torch.log10(state[:, 12]) - 5) / 0.5)  # TC
+        # state[:, 13] = torch.sigmoid((-torch.log10(state[:, 13]) - 6) / 0.5)  # settlingTime
         
-        # 4. 偏移电压(vos): 越小越好
-        state[:, 14] = torch.sigmoid((-torch.log10(state[:, 14]) - 3) / 0.5)  # vos
+        # # 4. 偏移电压(vos): 越小越好
+        # state[:, 14] = torch.sigmoid((-torch.log10(state[:, 14]) - 3) / 0.5)  # vos
         
-        # 5. 性能指标(FOML, FOMS): 越大越好
-        state[:, 15] = torch.sigmoid((state[:, 15] - 150) / 10)   # FOML
-        state[:, 16] = torch.sigmoid((state[:, 16] - 280) / 20) # FOMS
+        # # 5. 性能指标(FOML, FOMS): 越大越好
+        # state[:, 15] = torch.sigmoid((state[:, 15] - 150) / 10)   # FOML
+        # state[:, 16] = torch.sigmoid((state[:, 16] - 280) / 20) # FOMS
         
-        # 6. 面积和功耗(Active_Area, Power): 越小越好
-        state[:, 17] = torch.sigmoid((150 - state[:, 17]) / 15)  # Active_Area
-        state[:, 18] = torch.sigmoid((0.3 - state[:, 18]) / 0.03)  # Power
+        # # 6. 面积和功耗(Active_Area, Power): 越小越好
+        # state[:, 17] = torch.sigmoid((150 - state[:, 17]) / 15)  # Active_Area
+        # state[:, 18] = torch.sigmoid((0.3 - state[:, 18]) / 0.03)  # Power
 
-        # 7. 带宽和压摆率(GBW, sr): 使用对数归一化
-        state[:, 19] = torch.sigmoid((torch.log10(state[:, 19]) - 6) / 0.5)  # GBW
-        state[:, 20] = torch.sigmoid((state[:, 20] - 0.5) / 0.1)  # sr
+        # # 7. 带宽和压摆率(GBW, sr): 使用对数归一化
+        # state[:, 19] = torch.sigmoid((torch.log10(state[:, 19]) - 6) / 0.5)  # GBW
+        # state[:, 20] = torch.sigmoid((state[:, 20] - 0.5) / 0.1)  # sr
         
-        # # 归一化性能指标 (中间维度)
-        # perf_names = list(self.perf_norm_params.keys())
-        # for i, perf_name in enumerate(perf_names):
-        #     state[:, 3+i] = state[:, 3+i] / self.perf_norm_params[perf_name]['scale']
+        # # # 归一化性能指标 (中间维度)
+        # # perf_names = list(self.perf_norm_params.keys())
+        # # for i, perf_name in enumerate(perf_names):
+        # #     state[:, 3+i] = state[:, 3+i] / self.perf_norm_params[perf_name]['scale']
         
         # 归一化reward (最后一维)
-        state[:, 21] = (state[:, 21] - (-10)) / (2 - (-10))  # 映射到[0,1]
+        state[:, 7] = (state[:, 7] - (-10)) / (2 - (-10))  # 映射到[0,1]
         
         return state
 
@@ -426,6 +425,7 @@ class DDPGAgent:
             
             # 计算当前Q值和loss
             values = self.critic(pvt_corner, action)
+            values = values.reshape(-1, 1)  # 确保values的形状为[batch_size, 1]
             critic_loss = F.mse_loss(values, reward)
             critic_losses.append(critic_loss)
         
@@ -442,7 +442,7 @@ class DDPGAgent:
             # 转换数据到tensor
             obs = torch.FloatTensor(batch['obs']).to(self.device)
             pvt_state = torch.FloatTensor(batch['pvt_state']).to(self.device)
-            
+            action = torch.FloatTensor(batch['action']).to(self.device)
             # 修改这里：获取attention_weight的方式
             attention_weights = []
             for i in range(len(batch['corner_indices'])):  # 遍历每个batch
@@ -461,7 +461,9 @@ class DDPGAgent:
             attention_weight = torch.FloatTensor(attention_weights).reshape(-1, 1).to(self.device)
             
             # 计算加权policy loss
-            value = self.critic(obs, self.actor(pvt_state))
+            pvt_corner = pvt_state[:, corner_idx, :7]
+
+            value = self.critic(pvt_corner, action)
             actor_loss = -(attention_weight * value).mean()
             actor_losses.append(actor_loss)
         
@@ -494,7 +496,7 @@ class DDPGAgent:
             for corner_idx, result in results_dict.items():
                 self.actor.update_pvt_performance_r(
                     corner_idx,
-                    result['info'],
+
                     result['reward']
                 )
                 
@@ -518,7 +520,7 @@ class DDPGAgent:
             # 打印PVT图进度
             print("\nPVT Graph Rewards:")
             for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
-                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                reward = pvt_graph_state[corner_idx][7]  # reward在第21维
                 print(f"{corner_name}: reward = {reward:.4f}")
             print()
 
@@ -546,7 +548,7 @@ class DDPGAgent:
                 # 打印PVT图进度
                 print("\nHistory PVT Graph Rewards:")
                 for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
-                    reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                    reward = pvt_graph_state[corner_idx][7]  # reward在第21维
                     print(f"{corner_name}: reward = {reward:.4f}")
                 print()
 
@@ -577,10 +579,58 @@ class DDPGAgent:
                 
                 attention_weights =  normalized
 
-                print(sum(attention_weights))  # 输出: 1.0
-
                 print(f'*** corner_indices: {corner_indices} ***')
                 print(f'*** corner_weights: {attention_weights} ***')
+
+                # 获取所有角点的PVT向量 
+                all_pvt_vectors = []
+                for corner_idx in range(self.actor.num_PVT):
+                    pvt_vector = normalized_state[corner_idx][:7]  # 获取PVT编码部分
+                    all_pvt_vectors.append(pvt_vector)
+                
+                # 对每个角点预测reward
+                predicted_rewards = {}
+                for corner_idx, pvt_vector in enumerate(all_pvt_vectors):
+                    # 将action和pvt向量送入critic
+                    predicted_value = self.critic(pvt_vector.to(self.device), 
+                                                torch.FloatTensor(action).to(self.device))
+                    predicted_rewards[corner_idx] = predicted_value.item()
+
+                    # 执行仿真获取采样角点的真实reward
+                results_dict, reward_no, terminated, truncated, info = self.env.step((action, corner_indices))
+   
+                # 计算预测reward和真实reward的偏差
+                threshold = 0.6  # 可以调整的阈值
+                max_diff = 0
+                diffs = []
+                for corner_idx in corner_indices:
+                    true_reward = results_dict[corner_idx]['reward'] 
+                    pred_reward = predicted_rewards[corner_idx]
+                    diff = abs(true_reward - pred_reward)
+                    diffs.append(diff)
+                    max_diff = max(max_diff, diff)
+
+                print(f"diffs: {diffs}")
+                print(f"max_diff: {max_diff}")
+
+                # 如果偏差超过阈值,对剩余角点也进行仿真
+                if max_diff > threshold:
+                    print(f"Prediction error too large, simulating remaining corners...")
+                    remaining_corners = list(set(range(self.actor.num_PVT)) - set(corner_indices))
+                    extra_results, reward_no, terminated, truncated, info = self.env.step((action, remaining_corners, True))
+                    results_dict.update(extra_results)
+                    attention_weights = torch.ones(num_corners, device=self.device) / num_corners  # 每个角点权重为1/总角点数
+
+                else:
+                    print("Using predicted rewards")
+                    # 对未仿真的角点使用预测reward
+                    for corner_idx in range(self.actor.num_PVT):
+                        if corner_idx not in corner_indices:
+                            results_dict[corner_idx] = {
+                                'reward': predicted_rewards[corner_idx],
+                            }    
+                    # attention_weights = torch.ones(num_corners, device=self.device) / num_corners  # 每个角点权重为1/总角点数
+
                 
             else:
                 # 在随机探索阶段,使用所有角点
@@ -589,9 +639,9 @@ class DDPGAgent:
                 attention_weights = torch.ones(num_corners, device=self.device) / num_corners  # 每个角点权重为1/总角点数
 
 
-            results_dict, reward_no, terminated, truncated, info = self.env.step((action, corner_indices))
+                results_dict, reward_no, terminated, truncated, info = self.env.step((action, corner_indices))
             
-            
+
 
 
             # 添加错误处理
@@ -605,7 +655,6 @@ class DDPGAgent:
                 # 更新PVT图中角点的性能和reward
                 self.actor.update_pvt_performance(
                     corner_idx,
-                    result['info'],
                     result['reward']
                 )
                 
@@ -621,13 +670,15 @@ class DDPGAgent:
             pvt_graph_state = self.actor.pvt_graph.get_graph_features()
             normalized_state = self._normalize_pvt_graph_state(pvt_graph_state)
 
-            total_reward = 0
-            # 遍历采样的角点及其对应的权重
-            for weight, corner_idx in zip(attention_weights, corner_indices):
-                # 获取该角点的 reward
-                reward = results_dict[corner_idx]['reward']
-                # 加权累加
-                total_reward += weight * reward
+            total_reward = sum([result['reward'] for result in results_dict.values()])/len(results_dict)
+
+
+            # # 遍历采样的角点及其对应的权重
+            # for weight, corner_idx in zip(attention_weights, corner_indices):
+            #     # 获取该角点的 reward
+            #     reward = results_dict[corner_idx]['reward']
+            #     # 加权累加
+            #     total_reward += weight * reward
 
             print(f'*** total_reward: {total_reward} ***')
             print()
@@ -635,14 +686,14 @@ class DDPGAgent:
             # 打印PVT图进度
             print("\nPVT Graph Rewards:")
             for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
-                reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                reward = pvt_graph_state[corner_idx][7]  # reward在第21维
                 print(f"{corner_name}: reward = {reward:.4f}")
             print()
 
-            if total_reward > 0:  # 使用最佳角点的reward判断是否终止
-                terminated = True
-            else:
-                terminated = False
+            # if total_reward > 0:  # 使用最佳角点的reward判断是否终止
+            #     terminated = True
+            # else:
+            #     terminated = False
 
             self.score += total_reward
 
@@ -665,7 +716,6 @@ class DDPGAgent:
                 for corner_idx, result in results_dict.items():
                     self.actor.update_pvt_performance_r(
                         corner_idx,
-                        result['info'],
                         result['reward']
                     )
                 
@@ -677,7 +727,7 @@ class DDPGAgent:
                 # 打印PVT图进度
                 print("\nPVT Graph Rewards:")
                 for corner_idx, corner_name in enumerate(self.actor.pvt_graph.pvt_corners.keys()):
-                    reward = pvt_graph_state[corner_idx][21]  # reward在第21维
+                    reward = pvt_graph_state[corner_idx][7]  # reward在第21维
                     print(f"{corner_name}: reward = {reward:.4f}")
                 print()
 
@@ -717,7 +767,6 @@ class DDPGAgent:
         for corner_idx, result in results_dict.items():
             self.actor.update_pvt_performance_r(
                 corner_idx,
-                result['info'],
                 result['reward']
             )
             
@@ -741,7 +790,7 @@ class DDPGAgent:
             for corner_idx, result in results_dict.items():
                 self.actor.update_pvt_performance(
                     corner_idx,
-                    result['info'],
+
                     result['reward']
                 )
             

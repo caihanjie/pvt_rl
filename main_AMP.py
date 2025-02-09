@@ -45,16 +45,16 @@ if __name__ == '__main__':
     old = False
     agent_folder = './saved_results/saved_0.81'  # 已保存agent的文件夹路径
 
-    load_buffer = True
-    load_buffer_size = 18
+    load_buffer = False
+    load_buffer_size = 0
     buffer_path = './saved_results/02-01_23-44_steps18_corners-5_reward--3.39/memory_02-01_23-44_steps18_corners-5_reward--3.39.pkl'  
 
     plot_interval = 1
-    print_interval = 1
+    print_interval = 5
 
     sample_num = 2
-    num_steps = 30
-    initial_random_steps = 0
+    num_steps = 15
+    initial_random_steps = 2
     batch_size = 2
     
     check_interval = 100

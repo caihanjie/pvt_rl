@@ -43,15 +43,15 @@ class PVTGraph:
         
         # 初始化PVT图的节点特征
         self.num_corners = len(self.pvt_corners)
-        self.corner_dim = 22
+        self.corner_dim = 8
         self.node_features = np.zeros((self.num_corners, self.corner_dim))  
         
         # 初始化每个角点的特征
         for i, (corner, pvt_code) in enumerate(self.pvt_corners.items()):
             self.node_features[i, :7] = pvt_code  # PVT编码
             # 初始化性能指标和reward为最差值
-            self.node_features[i, 7:21] = -np.inf  # 性能指标
-            self.node_features[i, 21] = -np.inf    # reward
+            # self.node_features[i, 7:21] = -np.inf  # 性能指标
+            self.node_features[i, 7] = -np.inf    # reward
             
         # 定义图的边 - 完全图
         edges = []
@@ -192,31 +192,24 @@ set num_threads=8"""
         corner_name = list(self.pvt_corners.keys())[corner_idx]
         return os.path.join(self.SPICE_NETLIST_DIR, corner_name, f'AMP_NMCF_ACDC_{corner_name}.cir')
 
-    def update_performance_and_reward(self, corner_idx, new_performance, new_reward):
+    def update_performance_and_reward(self, corner_idx, new_reward):
         """
         更新指定角点的最佳性能和reward
         corner_idx: PVT角点的索引
         new_performance: 新的性能指标列表 [phase_margin, dcgain, PSRP, ...]
         new_reward: 新的reward值
         """
-        current_reward = self.node_features[corner_idx, 21]
-        # 只在新reward更好时更新性能和reward
-        if new_reward > current_reward:
-            performance_array = np.array(list(new_performance.values()), dtype=np.float32)
-            self.node_features[corner_idx, 7:21] = performance_array  # 更新性能指标
-            self.node_features[corner_idx, 21] = new_reward        # 更新reward
 
-    def update_performance_and_reward_r(self, corner_idx, info_dict, reward):
+        self.node_features[corner_idx, 7] = new_reward        # 更新reward
+
+    def update_performance_and_reward_r(self, corner_idx, reward):
         """
         强制更新指定角点的性能和reward
         corner_idx: PVT角点的索引
         info_dict: 性能指标字典 {'phase_margin': float, 'dcgain': float, ...}
         reward: 新的reward值
         """
-        # 从info字典中提取性能指标列表
-        performance_array = np.array(list(info_dict.values()), dtype=np.float32)
-        self.node_features[corner_idx, 7:21] = performance_array  # 更新性能指标
-        self.node_features[corner_idx, 21] = reward        # 更新reward
+        self.node_features[corner_idx, 7] = reward        # 更新reward
 
     def get_corner_name(self, idx):
         """根据索引获取角点名称"""
