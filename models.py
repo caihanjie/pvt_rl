@@ -238,42 +238,65 @@ class ActorCriticPVTGAT:
             """获取PVT图的状态特征"""
             return self.pvt_graph.get_graph_features()
 
+        
     class Critic(torch.nn.Module):
         def __init__(self, CktGraph):
             super().__init__()
-            self.num_node_features = CktGraph.num_node_features
+            # self.num_node_features = CktGraph.num_node_features
             self.action_dim = CktGraph.action_dim
             self.device = CktGraph.device
-            self.edge_index = CktGraph.edge_index
-            self.num_nodes = CktGraph.num_nodes
+            # self.edge_index = CktGraph.edge_index
+            # self.num_nodes = CktGraph.num_nodes
     
-            self.in_channels = self.num_node_features + self.action_dim
+            self.in_channels = self.action_dim + 7
             self.out_channels = 1
-            self.conv1 = GCNConv(self.in_channels, 32)
-            self.conv2 = GCNConv(32, 64)
-            self.conv3 = GCNConv(64, 128)
-            self.conv4 = GCNConv(128, 64)
-            self.conv5 = GCNConv(64, 32)
-            self.lin1 = LazyLinear(self.out_channels)
+            self.mlp1 = Linear(self.in_channels, 64)
+            self.mlp2 = Linear(64, 128)
+            self.mlp3 = Linear(128, 64)
+            self.mlp4 = Linear(64, 32)
+            self.mlp5 = Linear(32,16)
+            self.mlp6 = Linear(16,8)
+            self.mlp7 = Linear(8, self.out_channels)
     
-        def forward(self, state, action):
-            batch_size = state.shape[0]
-            edge_index = self.edge_index
+        def forward(self, pvt_corner, action):
+            batch_size = action.shape[0]
             device = self.device
-    
-            action = action.repeat_interleave(self.num_nodes, 0).reshape(
-                batch_size, self.num_nodes, -1)
-            data = torch.cat((state, action), axis=2)
+
+            data = torch.cat((action, pvt_corner), axis=1)
+            
     
             values = torch.tensor(()).to(device)
             for i in range(batch_size):
                 x = data[i]
-                x = F.relu(self.conv1(x, edge_index))
-                x = F.relu(self.conv2(x, edge_index))
-                x = F.relu(self.conv3(x, edge_index))
-                x = F.relu(self.conv4(x, edge_index))
-                x = F.relu(self.conv5(x, edge_index))
-                x = self.lin1(torch.flatten(x)).reshape(1, -1)
+                x = F.relu(self.mlp1(x))
+                x = F.relu(self.mlp2(x))
+                x = F.relu(self.mlp3(x))
+                x = F.relu(self.mlp4(x))
+                x = F.relu(self.mlp5(x))
+                x = F.relu(self.mlp6(x))
+                x = F.relu(self.mlp6(x))
                 values = torch.cat((values, x), axis=0)
     
             return values
+        
+        # def forward(self, pvt_corner, action):
+        #     batch_size = action.shape[0]
+        #     device = self.device
+            
+        #     # 处理pvt_corner
+        #     pvt_corner = torch.tensor(pvt_corner, device=self.device)  # [7]
+        #     pvt_corner = pvt_corner.unsqueeze(0)  # [1, 7]
+        #     pvt_corner = pvt_corner.repeat(batch_size, 1)  # [batch_size, 7]
+            
+        #     # 连接输入
+        #     data = torch.cat((action, pvt_corner), axis=1)  # [batch_size, action_dim + 7]
+            
+        #     # 直接对整个batch进行前向传播 
+        #     x = F.relu(self.mlp1(data))
+        #     x = F.relu(self.mlp2(x))
+        #     x = F.relu(self.mlp3(x))
+        #     x = F.relu(self.mlp4(x))
+        #     x = F.relu(self.mlp5(x))
+        #     x = F.relu(self.mlp6(x))
+            
+        #     return x

@@ -416,6 +416,8 @@ class DDPGAgent:
             pvt_state = torch.FloatTensor(batch['pvt_state']).to(self.device)
             next_pvt_state = torch.FloatTensor(batch['next_pvt_state']).to(self.device)
             
+            pvt_corner = pvt_state[:, corner_idx, :7]
+
             # # 计算目标Q值
             # masks = 1 - done
             # next_action = self.actor_target(next_pvt_state)
@@ -423,12 +425,13 @@ class DDPGAgent:
             # curr_return = reward + self.gamma * next_value * masks
             
             # 计算当前Q值和loss
-            values = self.critic(obs, action)
+            values = self.critic(pvt_corner, action)
             critic_loss = F.mse_loss(values, reward)
             critic_losses.append(critic_loss)
         
         # 更新critic
         total_critic_loss = sum(critic_losses) / len(critic_losses)
+        print(f"*******Total critic loss: {total_critic_loss.data}*******")
         self.critic_optimizer.zero_grad()
         total_critic_loss.backward()
         self.critic_optimizer.step()
@@ -585,8 +588,12 @@ class DDPGAgent:
                 num_corners = len(corner_indices)
                 attention_weights = torch.ones(num_corners, device=self.device) / num_corners  # 每个角点权重为1/总角点数
 
+
             results_dict, reward_no, terminated, truncated, info = self.env.step((action, corner_indices))
             
+            
+
+
             # 添加错误处理
             if results_dict is None:
                 print("Warning: results_dict is None, skipping this step")
