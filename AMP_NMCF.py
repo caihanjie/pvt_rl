@@ -612,26 +612,31 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
         def indicator_function(condition):
             return 1 if condition else 0
         
-        if self.PSRP <= self.PSRN:
-            self.PSRR = self.PSRP
-        else : 
-            self.PSRR = self.PSRN  
 
-        indicator_TC = indicator_function(self.TC < self.TC_base)
-        indicator_vos = indicator_function(self.vos < self.vos_base)
+        self.PSRR = self.PSRN  
 
-        if self.settlingTime > 0 and self.Active_Area >0 and self.TC > 0 and self.vos > 0 :
+        # indicator_TC = indicator_function(self.TC < self.TC_base)
+        # indicator_vos = indicator_function(self.vos < self.vos_base)
 
+        # if self.settlingTime > 0 and self.Active_Area >0 and self.TC > 0 and self.vos > 0 :
+        #     self.FOM_AMP = ( (self.PSRR/self.PSRR_base) * (self.cmrrdc/self.cmrrdc_base) * (self.dcgain/self.dcgain_base) * (self.FOMS/self.FOMS_base) * \
+        #                    (self.FOML/self.FOML_base) ) * ((self.settlingTime_base/self.settlingTime) * (self.Active_Area_base/self.Active_Area))  * \
+        #                    ((self.TC_base/self.TC)  * indicator_TC )* ((self.vos_base/self.vos) * indicator_vos )
+
+        if self.settlingTime > 0 and self.Active_Area >0  :
             self.FOM_AMP = ( (self.PSRR/self.PSRR_base) * (self.cmrrdc/self.cmrrdc_base) * (self.dcgain/self.dcgain_base) * (self.FOMS/self.FOMS_base) * \
-                           (self.FOML/self.FOML_base) ) * ((self.settlingTime_base/self.settlingTime) * (self.Active_Area_base/self.Active_Area))  * \
-                           ((self.TC_base/self.TC)  * indicator_TC )* ((self.vos_base/self.vos) * indicator_vos )
+                           (self.FOML/self.FOML_base) ) * ((self.settlingTime_base/self.settlingTime) * (self.Active_Area_base/self.Active_Area))  
         else :
             self.FOM_AMP = 0
     
         """ Total reward """
-        self.reward = self.phase_margin_score + self.dcgain_score + self.PSRP_score + self.PSRN_score + \
-                      self.cmrrdc_score + self.vos_score + self.TC_score + self.settlingTime_score + \
+        self.reward = self.phase_margin_score + self.dcgain_score + self.PSRN_score + \
+                      self.cmrrdc_score +  self.settlingTime_score + \
                       self.FOML_score + self. FOMS_score + self.Active_Area_score + self.Power_score + self.GBW_score + self.sr_score
+        
+        # self.reward = self.phase_margin_score + self.dcgain_score + self.PSRP_score + self.PSRN_score + \
+        #         self.cmrrdc_score + self.vos_score + self.TC_score + self.settlingTime_score + \
+        #         self.FOML_score + self. FOMS_score + self.Active_Area_score + self.Power_score + self.GBW_score + self.sr_score
                                          
         return {
                 'phase_margin (deg)': self.phase_margin, 
@@ -882,11 +887,11 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
                         ['corner', corner_name],
                         ['phase_margin (deg)', self.phase_margin, self.phase_margin_target],
                         ['dcgain', self.dcgain, self.dcgain_target],
-                        ['PSRP', self.PSRP, self.PSRP_target],
+                        ['PSRP##', self.PSRP, self.PSRP_target],
                         ['PSRN', self.PSRN, self.PSRN_target],
                         ['cmrrdc', self.cmrrdc, self.cmrrdc_target],
-                        ['vos', self.vos, self.vos_target],
-                        ['TC', self.TC, self.TC_target],
+                        ['vos##', self.vos, self.vos_target],
+                        ['TC##', self.TC, self.TC_target],
                         ['settlingTime', self.settlingTime, self.settlingTime_target], 
                         ['FOML', self.FOML, self.FOML_target],
                         ['FOMS', self.FOMS, self.FOMS_target],
@@ -897,11 +902,11 @@ class AMPNMCFEnv(gym.Env, CktGraph, DeviceParams):
                         ['FOM_AMP', self.FOM_AMP, ''],
                         ['phase_margin (deg) score', self.phase_margin_score, ''],
                         ['dcgain score', self.dcgain_score, ''],
-                        ['PSRP score', self.PSRP_score, ''],
+                        ['PSRP score##', self.PSRP_score, ''],
                         ['PSRN score', self.PSRN_score, ''],
                         ['cmrrdc score', self.cmrrdc_score, ''],
-                        ['vos score', self.vos_score, ''],
-                        ['TC score', self.TC_score, ''],
+                        ['vos score##', self.vos_score, ''],
+                        ['TC score##', self.TC_score, ''],
                         ['settlingTime score', self.settlingTime_score,''],
                         ['FOML score', self.FOML_score,''],
                         ['FOMS score', self.FOMS_score,''],

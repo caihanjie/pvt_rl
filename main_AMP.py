@@ -45,8 +45,8 @@ if __name__ == '__main__':
     old = False
     agent_folder = './saved_results/saved_0.81'  # 已保存agent的文件夹路径
 
-    load_buffer = True
-    load_buffer_size = 1200
+    load_buffer = False
+    load_buffer_size = 0
     buffer_path = './saved_results/02-01_23-44_steps18_corners-5_reward--3.39/memory_02-01_23-44_steps18_corners-5_reward--3.39.pkl'  
 
     plot_interval = 10
@@ -54,11 +54,11 @@ if __name__ == '__main__':
 
     sample_num = 8
     num_steps = 5000
-    initial_random_steps = 0
+    initial_random_steps = 140
     batch_size = 128
     
     check_interval = 100
-    noise_sigma = 0.05 # noise volume
+    noise_sigma = 1 # noise volume
     noise_sigma_min = 0.05
     noise_sigma_decay = 0.9995 # if 1 means no decay
     noise_type = 'uniform' 
