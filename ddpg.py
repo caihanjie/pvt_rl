@@ -391,8 +391,8 @@ class DDPGAgent:
         print("*** Update the model by gradient descent. ***")
         
         # 获取当前选择的角点
-        _, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
-        
+
+        corner_indices = self.corner_indices
         # 从每个选定的角点缓冲区采样数据
         corner_batches = {}
         for corner_idx in corner_indices:
@@ -547,6 +547,8 @@ class DDPGAgent:
                     print(f"{corner_name}: reward = {reward:.4f}")
                 print()
 
+
+
             else:
                 self.actor_losses = []
                 self.critic_losses = []
@@ -565,7 +567,7 @@ class DDPGAgent:
             
             if self.total_step >= self.initial_random_steps:
                 attention_weights, corner_indices = self.actor.sample_corners(num_samples=self.sample_num)
-
+                self.corner_indices = corner_indices
                 # 计算数组总和
                 total = sum(attention_weights)
                 
@@ -632,6 +634,14 @@ class DDPGAgent:
                 print(f"{corner_name}: reward = {reward:.4f}")
             print()
 
+                            # 按照reward从小到大打印索引序号
+            print("\nCorner indices sorted by reward:", end=' ')
+            rewards = pvt_graph_state[:, 21]  # 获取所有reward
+            sorted_indices = np.argsort(rewards)  # 按reward从小到大排序获取索引
+            for i, idx in enumerate(sorted_indices): print(f"{idx}", end=' ')
+            print()
+
+
             if total_reward > 0:  # 使用最佳角点的reward判断是否终止
                 terminated = True
             else:
@@ -673,6 +683,7 @@ class DDPGAgent:
                     reward = pvt_graph_state[corner_idx][21]  # reward在第21维
                     print(f"{corner_name}: reward = {reward:.4f}")
                 print()
+
 
 
             # 如果满足训练条件则更新模型
