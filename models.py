@@ -44,6 +44,8 @@ class ActorCriticPVTGAT:
             
             # 存储注意力权重
             self.attention_weights = None
+            self.alpha = None
+            self.alpha1 = None
 
         def forward(self, x, edge_index):
             # 确保edge_index是tensor类型
@@ -53,9 +55,9 @@ class ActorCriticPVTGAT:
             reward_weights = None
             if self.layer_idx == 0:  # 仅第一层计算reward权重
                 rewards = x[:, -1:]
-                reward_weights = 1.0 / (torch.abs(rewards)**3 + 1e-6)
-                reward_weights = F.normalize(reward_weights, p=1, dim=0)
-
+                reward_weights = 1.0 / (torch.abs(rewards) + 1e-6)
+                # reward_weights = F.normalize(reward_weights, p=1, dim=0)
+                reward_weights = (reward_weights - reward_weights.min()) / (reward_weights.max() - reward_weights.min() + 1e-6)
 
             x = self.lin(x).view(-1, self.heads, self.out_channels)
             return self.propagate(edge_index, x=x, reward_weights=reward_weights)
@@ -69,11 +71,15 @@ class ActorCriticPVTGAT:
                 # 确保reward_weights_j维度正确
                 if reward_weights_j.dim() == 1:
                     reward_weights_j = reward_weights_j.unsqueeze(-1)
-            
+
+                self.alpha = softmax(alpha, edge_index_i, num_nodes=size_i).detach().mean(dim=1)
+
                 guided_alpha = alpha + self.feature_guidance_weight * reward_weights_j
 
                 alpha = softmax(guided_alpha, edge_index_i, num_nodes=size_i)
                 self.attention_weights = alpha.detach().mean(dim=1)
+                
+
             else:
                 guided_alpha = alpha
 
@@ -141,7 +147,7 @@ class ActorCriticPVTGAT:
         def get_attention_weights(self):
             """获取注意力权重"""
             # 只返回最后一层的注意力权重
-            return self.layers[0].attention_weights
+            return self.layers[0].attention_weights, self.layers[0].alpha
 
 
     class Actor(nn.Module):
@@ -164,7 +170,7 @@ class ActorCriticPVTGAT:
                 output_dim=self.action_dim,  # 直接输出action_dim维度
                 heads=heads,
                 dropout=0,
-                guidance_weight=1.5##here
+                guidance_weight=0.3##here
             )
             
             # 当前选中的角点
@@ -196,11 +202,11 @@ class ActorCriticPVTGAT:
 
             
             # 获取最后一层的注意力权重
-            attention_weights = self.gat.get_attention_weights()
-            
+            attention_weights ,alpha = self.gat.get_attention_weights()\
+           
             # 创建节点重要性得分张量
             node_importance = torch.zeros(self.num_PVT, device=attention_weights.device)
-            
+            node_importance_alpha = torch.zeros(self.num_PVT, device=attention_weights.device)
             # 只计算每个节点作为源节点的重要性
             for node in range(self.num_PVT):
                 # 获取所有从该节点发出的边
@@ -208,7 +214,19 @@ class ActorCriticPVTGAT:
                 # 计算平均注意力权重（如果有出边的话）
                 if len(source_edges.shape) > 0:
                     node_importance[node] = attention_weights[source_edges].mean()
-            
+                    node_importance_alpha[node] = alpha[source_edges].mean()
+
+            # 获取排序后的索引
+            sorted_indices = torch.argsort(node_importance, descending=True)
+            print("Node importance ranking:", end=' ')
+            for idx in sorted_indices:
+                print(f"{idx.item()}", end=' ')
+            print()  # Add final newline
+
+            print(f"add reward{node_importance}")
+            print(f"alpha{node_importance_alpha}")
+            print(f"Mean squared difference: {torch.mean((node_importance - node_importance_alpha)**2)}")
+
             # 获取前num_samples个最重要的节点
             top_values, indices = torch.topk(node_importance, num_samples)
             

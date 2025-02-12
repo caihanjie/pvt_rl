@@ -50,7 +50,7 @@ if __name__ == '__main__':
     buffer_path = './saved_results/02-01_23-44_steps18_corners-5_reward--3.39/memory_02-01_23-44_steps18_corners-5_reward--3.39.pkl'  
 
     plot_interval = 1
-    print_interval = 1
+    print_interval = 25
 
     sample_num = 2
     num_steps = 30
