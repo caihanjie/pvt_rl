@@ -598,7 +598,7 @@ class DDPGAgent:
             # 更新PVT图
             for corner_idx, result in results_dict.items():
                 # 更新PVT图中角点的性能和reward
-                self.actor.update_pvt_performance(
+                self.actor.update_pvt_performance_r(
                     corner_idx,
                     result['info'],
                     result['reward']
@@ -743,7 +743,7 @@ class DDPGAgent:
             
             # 更新PVT图
             for corner_idx, result in results_dict.items():
-                self.actor.update_pvt_performance(
+                self.actor.update_pvt_performance_r(
                     corner_idx,
                     result['info'],
                     result['reward']
