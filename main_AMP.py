@@ -49,11 +49,11 @@ if __name__ == '__main__':
     load_buffer_size = 0
     buffer_path = './saved_results/02-01_23-44_steps18_corners-5_reward--3.39/memory_02-01_23-44_steps18_corners-5_reward--3.39.pkl'  
 
-    plot_interval = 1
+    plot_interval = 10
     print_interval = 25
 
     sample_num = 8
-    num_steps = 5000
+    num_steps = 10000
     initial_random_steps = 140
     batch_size = 128
     
