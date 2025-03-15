@@ -49,7 +49,6 @@ class ActorCriticPVTGAT:
 
             # 添加可学习的alpha参数
             self.alpha_param = nn.Parameter(torch.tensor(0.5))
-
         def forward(self, x, edge_index):
             # 确保edge_index是tensor类型
             if not isinstance(edge_index, torch.Tensor):
@@ -58,16 +57,13 @@ class ActorCriticPVTGAT:
             reward_weights = None
             if self.layer_idx == 0:  # 仅第一层计算reward权重
                 rewards = x[:, -1:]
-                # 使用可学习的alpha_param
-                alpha = F.softplus(self.alpha_param)  # 确保alpha为正值
-                print(f"alpha: {alpha}")
-                reward_weights = torch.exp(-alpha * rewards)  # 指数门控项
-                
-                # 保持原有的归一化
+                reward_weights = 1.0 / (torch.abs(rewards) + 1e-6)
+                # reward_weights = F.normalize(reward_weights, p=1, dim=0)
                 reward_weights = (reward_weights - reward_weights.min()) / (reward_weights.max() - reward_weights.min() + 1e-6)
 
             x = self.lin(x).view(-1, self.heads, self.out_channels)
             return self.propagate(edge_index, x=x, reward_weights=reward_weights)
+
 
         def message(self, edge_index_i, x_i, x_j, reward_weights_j, size_i):
             # 计算标准GAT注意力分数
